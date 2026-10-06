@@ -57,14 +57,15 @@ function parseBibtex(input: string): ParsedReference[] {
     const body = input.slice(entryRe.lastIndex, i - 1);
     const raw = input.slice(m.index, i);
     const f = parseBibtexFields(body);
+    const authorNames = f.author ? f.author.split(/\s+and\s+/i).map((a) => a.trim()) : [];
     refs.push({
       raw,
       format: "bibtex",
       doi: f.doi ? extractDoi(f.doi) : extractDoi(raw),
       title: f.title || undefined,
-      authors: f.author
-        ? f.author.split(/\s+and\s+/i).map(extractSurname).filter(Boolean)
-        : undefined,
+      authors: authorNames.length ? authorNames.map(extractSurname).filter(Boolean) : undefined,
+      authorsRaw: f.author || undefined,
+      firstAuthorFull: authorNames[0],
       year: f.year ? parseInt(f.year, 10) || undefined : undefined,
       journal: f.journal || f.booktitle || undefined,
     });
@@ -88,14 +89,18 @@ function parseRis(input: string): ParsedReference[] {
       return out;
     };
     const title = get("TI")[0] || get("T1")[0];
-    const authors = [...get("AU"), ...get("A1")].map(extractSurname).filter(Boolean);
+    const authorNames = [...get("AU"), ...get("A1")];
     const yearStr = get("PY")[0] || get("Y1")[0];
     refs.push({
       raw: entry.trim(),
       format: "ris",
       doi: get("DO")[0] ? extractDoi(get("DO")[0]) : extractDoi(entry),
       title: title || undefined,
-      authors: authors.length ? authors : undefined,
+      authors: authorNames.length
+        ? authorNames.map(extractSurname).filter(Boolean)
+        : undefined,
+      authorsRaw: authorNames.length ? authorNames.join("; ") : undefined,
+      firstAuthorFull: authorNames[0],
       year: yearStr ? parseInt(yearStr.slice(0, 4), 10) || undefined : undefined,
       journal: get("JO")[0] || get("T2")[0] || get("JF")[0] || undefined,
     });
@@ -135,6 +140,47 @@ function splitPlaintext(input: string): string[] {
   return lines.map((l) => l.trim()).filter((l) => l.length > 10);
 }
 
+/** "A." "M. W." 같은 이니셜 토큰인지 */
+function isInitials(s: string): boolean {
+  return /^([A-Z]\.?[\s-]*)+$/.test(s.trim());
+}
+
+/**
+ * 저자 구간 문자열 → 개별 저자 이름 목록.
+ * "Vaswani, A., Shazeer, N." / "Sangkeum Lee" / "Kim, J., & Lee, S." 모두 처리.
+ */
+export function splitAuthorNames(segment: string): string[] {
+  const cleaned = segment
+    .replace(/\bet\s+al\.?/gi, "")
+    .replace(/[.,;&\s]+$/, "")
+    .trim();
+  if (!cleaned) return [];
+  const parts = cleaned.split(/\s*(?:,|;|&|\band\b|·)\s*/).filter(Boolean);
+  const names: string[] = [];
+  for (const p of parts) {
+    if (isInitials(p) && names.length > 0) {
+      // "Vaswani" + "A." → "A. Vaswani" (이름 순서로 재조립)
+      names[names.length - 1] = `${p} ${names[names.length - 1]}`.trim();
+    } else if (/[A-Za-z가-힣]/.test(p)) {
+      names.push(p.trim());
+    }
+  }
+  return names;
+}
+
+/** 플레인텍스트 인용에서 저자 구간 추정: 연도 괄호 또는 따옴표 제목 앞부분 */
+function guessAuthorSegment(raw: string): string | undefined {
+  const yearPos = raw.search(/\((?:19|20)\d{2}[a-z]?\)/);
+  const quotePos = raw.search(/["“]/);
+  const cutCandidates = [yearPos, quotePos].filter((p) => p > 2);
+  if (cutCandidates.length === 0) return undefined;
+  const cut = Math.min(...cutCandidates);
+  const segment = raw.slice(0, cut).trim();
+  // 저자 구간이라기엔 너무 길면 (제목이 앞에 오는 스타일) 포기
+  if (segment.length > 120 || !/[A-Za-z가-힣]/.test(segment)) return undefined;
+  return segment;
+}
+
 /** 플레인텍스트 인용에서 제목 추정 */
 function guessTitle(raw: string): string | undefined {
   // 1) 따옴표로 감싼 제목: "Title here," 또는 “Title here”
@@ -156,12 +202,17 @@ function guessTitle(raw: string): string | undefined {
 }
 
 function parsePlaintextItem(raw: string): ParsedReference {
+  const authorSegment = guessAuthorSegment(raw);
+  const names = authorSegment ? splitAuthorNames(authorSegment) : [];
   return {
     raw,
     format: "plaintext",
     doi: extractDoi(raw),
     title: guessTitle(raw),
     year: extractYear(raw),
+    authors: names.length ? names.map(extractSurname).filter(Boolean) : undefined,
+    authorsRaw: authorSegment || undefined,
+    firstAuthorFull: names[0],
   };
 }
 

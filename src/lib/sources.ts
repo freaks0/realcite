@@ -1,4 +1,4 @@
-import type { SourceRecord, RetractionStatus } from "./types";
+import type { RecordAuthor, RetractionStatus, SourceRecord } from "./types";
 
 /**
  * Crossref polite pool 식별용 운영자 연락처.
@@ -26,6 +26,14 @@ async function fetchJson(url: string, tries = 3): Promise<unknown | null> {
   throw new Error(`요청 실패: ${new URL(url).hostname}`);
 }
 
+/** "Ashish Vaswani" → {given: "Ashish", family: "Vaswani"} */
+function splitDisplayName(name: string): RecordAuthor | null {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return null;
+  if (parts.length === 1) return { family: parts[0] };
+  return { family: parts[parts.length - 1], given: parts.slice(0, -1).join(" ") };
+}
+
 /* ---------------- Crossref ---------------- */
 
 interface CrossrefWork {
@@ -42,19 +50,28 @@ interface CrossrefWork {
 function crossrefToRecord(w: CrossrefWork): SourceRecord | null {
   const title = w.title?.[0]?.replace(/\s+/g, " ").trim();
   if (!title) return null;
+  const authors: RecordAuthor[] = [];
+  for (const a of w.author ?? []) {
+    if (a.family) authors.push({ family: a.family, given: a.given });
+    else if (a.name) {
+      const split = splitDisplayName(a.name);
+      if (split) authors.push(split);
+    }
+  }
   return {
     source: "crossref",
     doi: w.DOI,
     title,
-    authors: (w.author ?? [])
-      .map((a) => a.family || a.name || "")
-      .filter(Boolean),
+    authors,
     year: w.issued?.["date-parts"]?.[0]?.[0],
     journal: w["container-title"]?.[0],
     url: w.DOI ? `https://doi.org/${w.DOI}` : w.URL,
     type: w.type,
+    isPreprint: w.type === "posted-content",
   };
 }
+
+const CROSSREF_SELECT = "DOI,title,author,issued,container-title,type";
 
 export async function crossrefByDoi(doi: string): Promise<SourceRecord | null> {
   const json = (await fetchJson(
@@ -70,7 +87,7 @@ export async function crossrefSearchBibliographic(
 ): Promise<SourceRecord[]> {
   const q = encodeURIComponent(citation.slice(0, 500));
   const json = (await fetchJson(
-    `https://api.crossref.org/works?query.bibliographic=${q}&rows=${rows}&select=DOI,title,author,issued,container-title,type&mailto=${MAILTO}`
+    `https://api.crossref.org/works?query.bibliographic=${q}&rows=${rows}&select=${CROSSREF_SELECT}&mailto=${MAILTO}`
   )) as { message?: { items?: CrossrefWork[] } } | null;
   return (json?.message?.items ?? [])
     .map(crossrefToRecord)
@@ -105,39 +122,49 @@ export async function crossrefRetractionCheck(doi: string): Promise<RetractionSt
   return found;
 }
 
-/* ---------------- OpenAlex (DOI 단건 조회 전용 — 크레딧 절약) ---------------- */
+/* ---------------- OpenAlex (단건·필터 조회 위주 — 크레딧 절약) ---------------- */
 
 interface OpenAlexWork {
   doi?: string;
   title?: string;
   display_name?: string;
   publication_year?: number;
+  type?: string;
   authorships?: { author?: { display_name?: string } }[];
-  primary_location?: { source?: { display_name?: string } };
+  primary_location?: { source?: { display_name?: string; type?: string } };
   is_retracted?: boolean;
+}
+
+const OPENALEX_SELECT = "doi,title,display_name,publication_year,type,authorships,primary_location";
+
+function openalexToRecord(w: OpenAlexWork): SourceRecord | null {
+  const title = (w.display_name || w.title)?.trim();
+  if (!title) return null;
+  const doi = w.doi?.replace(/^https?:\/\/doi\.org\//, "");
+  const journal = w.primary_location?.source?.display_name;
+  return {
+    source: "openalex",
+    doi,
+    title,
+    authors: (w.authorships ?? [])
+      .map((a) => splitDisplayName(a.author?.display_name ?? ""))
+      .filter((a): a is RecordAuthor => a !== null),
+    year: w.publication_year,
+    journal,
+    url: doi ? `https://doi.org/${doi}` : undefined,
+    type: w.type,
+    isPreprint:
+      w.type === "preprint" ||
+      w.primary_location?.source?.type === "repository" ||
+      /arxiv|biorxiv|medrxiv|ssrn|preprint/i.test(journal ?? ""),
+  };
 }
 
 export async function openalexByDoi(doi: string): Promise<SourceRecord | null> {
   const json = (await fetchJson(
-    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?mailto=${MAILTO}`
+    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=${OPENALEX_SELECT}&mailto=${MAILTO}`
   )) as OpenAlexWork | null;
-  const title = (json?.display_name || json?.title)?.trim();
-  if (!json || !title) return null;
-  return {
-    source: "openalex",
-    doi: json.doi?.replace(/^https?:\/\/doi\.org\//, ""),
-    title,
-    authors: (json.authorships ?? [])
-      .map((a) => {
-        const name = a.author?.display_name ?? "";
-        const parts = name.split(/\s+/);
-        return parts[parts.length - 1] || "";
-      })
-      .filter(Boolean),
-    year: json.publication_year,
-    journal: json.primary_location?.source?.display_name,
-    url: `https://doi.org/${json.doi?.replace(/^https?:\/\/doi\.org\//, "")}`,
-  };
+  return json ? openalexToRecord(json) : null;
 }
 
 /**
@@ -147,29 +174,29 @@ export async function openalexByDoi(doi: string): Promise<SourceRecord | null> {
 export async function openalexTitleSearch(title: string): Promise<SourceRecord[]> {
   const q = encodeURIComponent(title.slice(0, 250).replace(/[,|&]/g, " "));
   const json = (await fetchJson(
-    `https://api.openalex.org/works?filter=title.search:${q}&per-page=5&select=doi,title,display_name,publication_year,authorships,primary_location&mailto=${MAILTO}`
+    `https://api.openalex.org/works?filter=title.search:${q}&per-page=5&select=${OPENALEX_SELECT}&mailto=${MAILTO}`
   )) as { results?: OpenAlexWork[] } | null;
-  const out: SourceRecord[] = [];
-  for (const w of json?.results ?? []) {
-    const t = (w.display_name || w.title)?.trim();
-    if (!t) continue;
-    const doi = w.doi?.replace(/^https?:\/\/doi\.org\//, "");
-    out.push({
-      source: "openalex",
-      doi,
-      title: t,
-      authors: (w.authorships ?? [])
-        .map((a) => {
-          const parts = (a.author?.display_name ?? "").split(/\s+/);
-          return parts[parts.length - 1] || "";
-        })
-        .filter(Boolean),
-      year: w.publication_year,
-      journal: w.primary_location?.source?.display_name,
-      url: doi ? `https://doi.org/${doi}` : undefined,
-    });
-  }
-  return out;
+  return (json?.results ?? [])
+    .map(openalexToRecord)
+    .filter((r): r is SourceRecord => r !== null);
+}
+
+/**
+ * 저자 이름 + 연도(±1) 폴백 검색 — AI가 제목을 변형해 지어낸 인용(제목 검색 불가)을
+ * "같은 저자의 유사 논문"으로나마 찾아내기 위한 최후 수단.
+ */
+export async function openalexAuthorYearSearch(
+  authorName: string,
+  year?: number
+): Promise<SourceRecord[]> {
+  const name = encodeURIComponent(authorName.replace(/[.,|&]/g, " ").trim().slice(0, 100));
+  const yearFilter = year ? `,publication_year:${year - 1}|${year}|${year + 1}` : "";
+  const json = (await fetchJson(
+    `https://api.openalex.org/works?filter=raw_author_name.search:${name}${yearFilter}&per-page=50&select=${OPENALEX_SELECT}&mailto=${MAILTO}`
+  )) as { results?: OpenAlexWork[] } | null;
+  return (json?.results ?? [])
+    .map(openalexToRecord)
+    .filter((r): r is SourceRecord => r !== null);
 }
 
 /** OpenAlex 자체 철회 플래그 (보조 신호) */
@@ -191,7 +218,7 @@ interface S2Paper {
   year?: number;
   venue?: string;
   authors?: { name?: string }[];
-  externalIds?: { DOI?: string };
+  externalIds?: { DOI?: string; ArXiv?: string };
 }
 
 // 키 없는 공유 풀은 동시 요청에 민감 — S2 호출은 전역 직렬화 + 간격 유지
@@ -222,18 +249,21 @@ export async function s2TitleMatch(query: string): Promise<SourceRecord | null> 
   }
   const p = json?.data?.[0];
   if (!p?.title) return null;
+  const venue = p.venue;
   return {
     source: "semanticscholar",
     doi: p.externalIds?.DOI,
     title: p.title,
     authors: (p.authors ?? [])
-      .map((a) => {
-        const parts = (a.name ?? "").split(/\s+/);
-        return parts[parts.length - 1] || "";
-      })
-      .filter(Boolean),
+      .map((a) => splitDisplayName(a.name ?? ""))
+      .filter((a): a is RecordAuthor => a !== null),
     year: p.year,
-    journal: p.venue,
-    url: p.externalIds?.DOI ? `https://doi.org/${p.externalIds.DOI}` : undefined,
+    journal: venue,
+    url: p.externalIds?.DOI
+      ? `https://doi.org/${p.externalIds.DOI}`
+      : p.externalIds?.ArXiv
+        ? `https://arxiv.org/abs/${p.externalIds.ArXiv}`
+        : undefined,
+    isPreprint: !p.externalIds?.DOI && (!venue || /arxiv/i.test(venue)),
   };
 }
