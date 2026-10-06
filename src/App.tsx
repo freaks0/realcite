@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { detectFormat, parseReferences } from "./lib/parse";
 import { verifyAll } from "./lib/verify";
+import { setOpenalexApiKey } from "./lib/sources";
 import { formatCitation, STYLE_LABELS, type CitationStyle } from "./lib/citestyles";
 import { formatAuthorList } from "./lib/types";
 import type { SourceRecord, VerificationResult, Verdict } from "./lib/types";
@@ -218,8 +219,21 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
   );
 }
 
+const OA_KEY_STORAGE = "citeguard.openalexApiKey";
+
 export default function App() {
   const [input, setInput] = useState("");
+  const [oaKey, setOaKey] = useState(() => {
+    const saved = localStorage.getItem(OA_KEY_STORAGE) ?? "";
+    setOpenalexApiKey(saved);
+    return saved;
+  });
+
+  const updateOaKey = (key: string) => {
+    setOaKey(key);
+    localStorage.setItem(OA_KEY_STORAGE, key.trim());
+    setOpenalexApiKey(key);
+  };
   const [results, setResults] = useState<VerificationResult[] | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -308,6 +322,32 @@ export default function App() {
               {running ? `검증 중 ${progress!.done}/${progress!.total}` : "검증하기"}
             </button>
           </div>
+          <details className="settings">
+            <summary>고급 설정</summary>
+            <div className="settings-body">
+              <label className="settings-label" htmlFor="oa-key">
+                OpenAlex API 키 (선택)
+              </label>
+              <input
+                id="oa-key"
+                type="text"
+                value={oaKey}
+                onChange={(e) => updateOaKey(e.target.value)}
+                placeholder="키 없이도 동작합니다"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <p className="settings-help">
+                키가 없으면 같은 네트워크(IP)끼리 공유하는 무료 한도로 동작합니다. 학교나 회사처럼
+                여러 명이 IP를 공유하는 곳에서 "확인 불가"가 자주 뜨면,{" "}
+                <a href="https://openalex.org/signup" target="_blank" rel="noreferrer">
+                  OpenAlex 무료 계정
+                </a>
+                을 만들고 설정에서 키를 복사해 넣으세요. 한도가 10배로 늘어납니다. 키는 이
+                브라우저에만 저장되며 OpenAlex 외에는 전송되지 않습니다.
+              </p>
+            </div>
+          </details>
           {input === EXAMPLE && (
             <p className="example-note">
               예시 안내: [3]번은 조작 의심 판정을 시연하기 위해 일부러 넣은 가짜 인용입니다

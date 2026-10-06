@@ -586,6 +586,52 @@ textarea::placeholder {
   color: var(--ink-dim);
 }
 
+/* 고급 설정 */
+.settings {
+  margin-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+  font-size: 0.8rem;
+}
+
+.settings summary {
+  cursor: pointer;
+  color: var(--ink-dim);
+  font-size: 0.78rem;
+  user-select: none;
+}
+
+.settings-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 520px;
+}
+
+.settings-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-dim);
+}
+
+.settings-body input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 7px 10px;
+}
+
+.settings-help {
+  color: var(--ink-dim);
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
 .disclaimer {
   margin-top: 16px;
   padding: 10px 14px;

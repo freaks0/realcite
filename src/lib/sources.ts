@@ -231,11 +231,26 @@ export async function europePmcTitleSearch(title: string): Promise<SourceRecord[
 /* ---------------- OpenAlex (단건 조회는 무료, 검색은 일일 한도 — 한도 시 즉시 스킵) ---------------- */
 
 let oaSearchExhausted = false;
+let oaApiKey = "";
+
+/**
+ * 사용자 본인의 OpenAlex API 키 설정 (선택).
+ * 키 없이는 IP당 일 $0.10, 무료 계정 키($1/일)를 넣으면 한도가 10배로 늘어남.
+ * 키는 브라우저(localStorage)에만 저장되고 api.openalex.org로만 전송됨.
+ */
+export function setOpenalexApiKey(key: string): void {
+  oaApiKey = key.trim();
+  if (oaApiKey) oaSearchExhausted = false; // 키가 생겼으면 차단 해제 후 재시도 허용
+}
+
+function oaKeyParam(): string {
+  return oaApiKey ? `&api_key=${encodeURIComponent(oaApiKey)}` : "";
+}
 
 /** 검색(리스트/필터) 전용 fetch: 429(일일 예산 소진)면 세션 내 재시도 없이 즉시 차단 */
 async function oaSearchFetch(url: string): Promise<unknown | null> {
   if (oaSearchExhausted) throw new Error("OpenAlex 검색 일일 무료 한도 소진");
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await fetch(url + oaKeyParam(), { headers: { Accept: "application/json" } });
   if (res.status === 404) return null;
   if (res.status === 429) {
     oaSearchExhausted = true;
@@ -283,7 +298,7 @@ function openalexToRecord(w: OpenAlexWork): SourceRecord | null {
 
 export async function openalexByDoi(doi: string): Promise<SourceRecord | null> {
   const json = (await fetchJson(
-    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=${OPENALEX_SELECT}&mailto=${MAILTO}`
+    `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=${OPENALEX_SELECT}&mailto=${MAILTO}${oaKeyParam()}`
   )) as OpenAlexWork | null;
   return json ? openalexToRecord(json) : null;
 }
@@ -327,7 +342,7 @@ export async function openalexAuthorYearSearch(
 export async function openalexRetractedFlag(doi: string): Promise<boolean | null> {
   try {
     const json = (await fetchJson(
-      `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=is_retracted&mailto=${MAILTO}`
+      `https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=is_retracted&mailto=${MAILTO}${oaKeyParam()}`
     )) as { is_retracted?: boolean } | null;
     return json?.is_retracted ?? null;
   } catch {
