@@ -5,17 +5,18 @@ import type {
   SourceRecord,
   VerificationResult,
 } from "./types";
+import { authorSurnames, formatAuthorList } from "./types";
 import {
   crossrefByDoi,
   crossrefRetractionCheck,
   crossrefSearchBibliographic,
+  openalexAuthorYearSearch,
   openalexByDoi,
   openalexRetractedFlag,
   openalexTitleSearch,
   s2TitleMatch,
 } from "./sources";
 import { containment, normalize, titleSimilarity } from "./similarity";
-import { toBibtex } from "./bibtex";
 
 /** 후보 레코드가 입력과 얼마나 맞는지 제목 기준 점수 (0~1) */
 function titleScore(ref: ParsedReference, rec: SourceRecord): number {
@@ -26,6 +27,11 @@ function titleScore(ref: ParsedReference, rec: SourceRecord): number {
   return Math.max(...scores);
 }
 
+/** "같은 논문"이라고 할 수 있는 제목 일치 기준 */
+function titleOk(ref: ParsedReference, rec: SourceRecord): boolean {
+  return titleScore(ref, rec) >= (ref.format === "plaintext" ? 0.7 : 0.85);
+}
+
 function yearMatches(ref: ParsedReference, rec: SourceRecord): boolean | null {
   if (!ref.year || !rec.year) return null;
   // 온라인 공개/지면 출판 연도 차이는 흔하므로 ±1 허용
@@ -33,33 +39,32 @@ function yearMatches(ref: ParsedReference, rec: SourceRecord): boolean | null {
 }
 
 function authorMatches(ref: ParsedReference, rec: SourceRecord): boolean | null {
-  if (rec.authors.length === 0) return null;
-  const recSurnames = rec.authors.map((a) => normalize(a));
+  const recSurnames = authorSurnames(rec).map((s) => normalize(s));
+  if (recSurnames.length === 0) return null;
   if (ref.authors && ref.authors.length > 0) {
     const inputSurnames = ref.authors.map((a) => normalize(a));
-    // 입력 1저자가 레코드 저자 목록에 있으면 일치로 간주
+    // 입력 저자 중 한 명이라도 레코드 저자 목록에 있으면 일치로 간주
     return recSurnames.some((s) => inputSurnames.includes(s));
   }
-  // 플레인텍스트: 레코드 1저자 성이 입력 원문에 등장하는지
+  // 저자 추출 실패 시: 레코드 1~3저자 성이 입력 원문에 등장하는지
   const rawNorm = ` ${normalize(ref.raw)} `;
   return recSurnames.slice(0, 3).some((s) => s.length > 1 && rawNorm.includes(` ${s} `));
 }
 
 function buildComparisons(ref: ParsedReference, rec: SourceRecord): FieldComparison[] {
   const comps: FieldComparison[] = [];
-  const ts = titleScore(ref, rec);
   comps.push({
     field: "title",
     inputValue: ref.title ?? "(원문에서 추정)",
     foundValue: rec.title,
-    match: ts >= (ref.format === "plaintext" ? 0.7 : 0.85),
+    match: titleOk(ref, rec),
   });
   const am = authorMatches(ref, rec);
   if (am !== null) {
     comps.push({
       field: "authors",
-      inputValue: ref.authors?.join(", ") ?? "(원문에서 추정)",
-      foundValue: rec.authors.join(", "),
+      inputValue: ref.authorsRaw ?? ref.authors?.join(", ") ?? "(원문에서 추정)",
+      foundValue: formatAuthorList(rec, 8),
       match: am,
     });
   }
@@ -107,6 +112,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
   try {
     let matched: SourceRecord | undefined;
     let viaDoi = false;
+    let nearestMiss: SourceRecord | undefined;
+    let uncertain = false;
 
     // 1단계: DOI 해석 (Crossref → 실패 시 OpenAlex: arXiv 등 DataCite DOI 커버)
     if (ref.doi) {
@@ -123,6 +130,7 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
           viaDoi = true;
         } else {
           notes.push("입력된 DOI는 전혀 다른 논문을 가리킴");
+          nearestMiss = rec;
         }
       } else {
         notes.push("입력된 DOI가 어느 DB에서도 해석되지 않음");
@@ -142,14 +150,14 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         else if (am === false) score -= 0.1;
         return score;
       };
-
-      sourcesChecked.push("Crossref (서지 검색)");
-      const pool = await crossrefSearchBibliographic(ref.raw);
       const pickBest = (cands: SourceRecord[]): SourceRecord | undefined =>
         cands.reduce<SourceRecord | undefined>(
           (b, c) => (!b || candScore(c) > candScore(b) ? c : b),
           undefined
         );
+
+      sourcesChecked.push("Crossref (서지 검색)");
+      const pool = await crossrefSearchBibliographic(ref.raw);
       let best = pickBest(pool);
 
       // Crossref 최선 후보가 확신 수준이 아니면 다른 소스 교차 확인
@@ -165,29 +173,81 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         if (s2 && (!best || candScore(s2) > candScore(best))) best = s2;
       }
 
-      if (best && titleScore(ref, best) >= 0.55) matched = best;
+      if (best) {
+        const ts = titleScore(ref, best);
+        if (titleOk(ref, best)) {
+          // 제목 일치 → 같은 논문
+          matched = best;
+        } else if (ts >= 0.45 && authorMatches(ref, best) === true && yearMatches(ref, best) !== false) {
+          // 제목은 다르지만 저자·연도가 맞음 → 유사 논문 (제목이 변형된 인용일 가능성)
+          matched = best;
+          uncertain = true;
+        } else if (ts >= 0.35) {
+          // 동일 논문이라 보기 어려움 — 참고용으로만 보관
+          nearestMiss = best;
+        }
+      }
+
+      // 3단계: 저자+연도 폴백 — AI가 제목을 지어낸 인용은 제목 검색이 전부 실패하므로,
+      // 같은 저자의 해당 연도 논문 중 가장 비슷한 것을 찾아 후보로 제시
+      if (!matched && ref.firstAuthorFull) {
+        sourcesChecked.push("OpenAlex (저자 검색)");
+        const byAuthor = await openalexAuthorYearSearch(ref.firstAuthorFull, ref.year);
+        let bestA: SourceRecord | undefined;
+        let bestAScore = 0;
+        for (const cand of byAuthor) {
+          const s = titleScore(ref, cand);
+          if (s > bestAScore) {
+            bestAScore = s;
+            bestA = cand;
+          }
+        }
+        if (bestA && bestAScore >= 0.25) {
+          matched = bestA;
+          uncertain = true;
+          notes.push("제목 검색은 실패했으나 동일 저자·연도에서 유사 논문 발견");
+        }
+      }
     }
 
-    // 판정
+    // ---- 판정 ----
     if (!matched) {
       return {
         ref,
         verdict: "major",
+        nearestMiss,
         confidence: 0.9,
         comparisons: [],
         retraction: { status: "none" },
         sourcesChecked,
         reason:
           (notes.length ? notes.join("; ") + ". " : "") +
-          "조회한 모든 DB에서 일치하는 실존 문헌을 찾지 못함 — 조작(할루시네이션) 의심. 수동 확인 필요.",
+          "조회한 모든 DB에서 일치하는 실존 문헌을 찾지 못함 — 조작(할루시네이션) 의심. " +
+          "단, 제목·저널명이 변형된 실존 논문일 가능성도 있으니 직접 확인하세요.",
       };
     }
 
     const comparisons = buildComparisons(ref, matched);
-    const mismatches = comparisons.filter((c) => !c.match);
     const retraction = await checkRetraction(matched);
     const ts = titleScore(ref, matched);
 
+    if (uncertain) {
+      return {
+        ref,
+        verdict: "uncertain",
+        matched,
+        confidence: 0.4,
+        comparisons,
+        retraction,
+        sourcesChecked,
+        reason:
+          (notes.length ? notes.join("; ") + ". " : "") +
+          "입력된 제목과 일치하는 논문은 없지만, 저자·연도가 맞는 유사 논문을 찾았습니다. " +
+          "AI가 실존 논문의 제목을 변형해 인용했을 가능성이 있습니다 — 아래 논문이 의도한 것인지 직접 확인하세요.",
+      };
+    }
+
+    const mismatches = comparisons.filter((c) => !c.match);
     if (mismatches.length === 0 && (viaDoi || ts >= 0.85)) {
       return {
         ref,
@@ -200,7 +260,6 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         reason: viaDoi
           ? "DOI 해석 성공 + 메타데이터 필드 일치"
           : "서지 검색에서 고신뢰 일치 레코드 확인",
-        correctedBibtex: toBibtex(matched),
       };
     }
 
@@ -215,9 +274,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       reason:
         (notes.length ? notes.join("; ") + ". " : "") +
         (mismatches.length
-          ? `실존 문헌으로 보이나 ${mismatches.map((m) => m.field).join(", ")} 필드 불일치 — 교정 필요`
-          : "유사 문헌을 찾았으나 일치 신뢰도가 낮음 — 수동 확인 권장"),
-      correctedBibtex: toBibtex(matched),
+          ? `같은 논문으로 보이나 ${mismatches.map((m) => m.field).join(", ")} 필드 불일치 — 교정 필요`
+          : "일치 문헌을 찾았으나 신뢰도가 다소 낮음 — 수동 확인 권장"),
     };
   } catch (e) {
     return {

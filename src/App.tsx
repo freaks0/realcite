@@ -1,16 +1,20 @@
 import { useMemo, useRef, useState } from "react";
 import { detectFormat, parseReferences } from "./lib/parse";
 import { verifyAll } from "./lib/verify";
-import type { VerificationResult, Verdict } from "./lib/types";
+import { formatCitation, STYLE_LABELS, type CitationStyle } from "./lib/citestyles";
+import { formatAuthorList } from "./lib/types";
+import type { SourceRecord, VerificationResult, Verdict } from "./lib/types";
 
 const EXAMPLE = `[1] Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). "Attention is all you need." Advances in Neural Information Processing Systems, 30.
 [2] Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL-HLT. https://doi.org/10.18653/v1/N19-1423
 [3] Smith, J., & Johnson, K. (2021). "Quantum neural fusion networks for sentiment-aware blockchain analytics." Journal of Advanced Computational Metaphysics, 14(3), 221-240.
-[4] Wakefield, A.J., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637-641. doi:10.1016/S0140-6736(97)11096-0`;
+[4] Wakefield, A.J., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637-641. doi:10.1016/S0140-6736(97)11096-0
+[5] Sangkeum Lee, "Blind reset recycles ancilla qubits for variational quantum workloads," Discover Quantum Science, 2026.`;
 
 const VERDICT_META: Record<Verdict, { icon: string; label: string; cls: string }> = {
   exact: { icon: "✓", label: "실존 확인", cls: "exact" },
   minor: { icon: "!", label: "필드 불일치", cls: "minor" },
+  uncertain: { icon: "≈", label: "유사 논문 발견", cls: "uncertain" },
   major: { icon: "✕", label: "조작 의심", cls: "major" },
   error: { icon: "?", label: "확인 불가", cls: "error" },
 };
@@ -25,18 +29,66 @@ const FIELD_LABEL: Record<string, string> = {
 
 const FORMAT_LABEL = { bibtex: "BibTeX", ris: "RIS", plaintext: "텍스트 목록" };
 
-function ResultCard({ result }: { result: VerificationResult }) {
-  const [open, setOpen] = useState(result.verdict !== "exact");
+function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="btn-small"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? "복사됨 ✓" : label}
+    </button>
+  );
+}
+
+function RecordBox({
+  rec,
+  heading,
+  inputJournal,
+}: {
+  rec: SourceRecord;
+  heading?: string;
+  inputJournal?: string;
+}) {
+  return (
+    <div className="matched">
+      {heading && <div className="matched-heading">{heading}</div>}
+      <div className="matched-title">
+        {rec.url ? (
+          <a href={rec.url} target="_blank" rel="noreferrer">
+            {rec.title}
+          </a>
+        ) : (
+          rec.title
+        )}
+        {rec.isPreprint && <span className="preprint-chip">프리프린트</span>}
+      </div>
+      <div className="matched-meta">
+        {formatAuthorList(rec, 5)}
+        {rec.year && ` · ${rec.year}`}
+        {rec.journal && ` · ${rec.journal}`}
+        {rec.doi && ` · ${rec.doi}`}
+      </div>
+      {rec.isPreprint && (
+        <div className="preprint-note">
+          📄 이 논문은 저장소(arXiv 등)에 올라온 프리프린트로만 확인됩니다 — 피어리뷰 저널
+          게재본은 찾지 못했습니다.
+          {inputJournal && ` 입력에 적힌 저널명(${inputJournal})은 확인되지 않았습니다.`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultCard({ result, style }: { result: VerificationResult; style: CitationStyle }) {
+  const [open, setOpen] = useState(result.verdict !== "exact");
   const meta = VERDICT_META[result.verdict];
   const retracted = result.retraction.status === "retracted";
-
-  const copyBibtex = () => {
-    if (!result.correctedBibtex) return;
-    navigator.clipboard.writeText(result.correctedBibtex);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const citation = result.matched ? formatCitation(result.matched, style) : null;
 
   return (
     <div className={`card verdict-${meta.cls}${retracted ? " retracted" : ""}`}>
@@ -54,27 +106,26 @@ function ResultCard({ result }: { result: VerificationResult }) {
 
       {open && (
         <div className="card-body">
+          <div className="raw-block">
+            <div className="raw-text">{result.ref.raw}</div>
+            <CopyButton text={result.ref.raw} label="원문 복사" />
+          </div>
+
           <p className="reason">{result.reason}</p>
 
           {result.matched && (
-            <div className="matched">
-              <div className="matched-title">
-                {result.matched.doi ? (
-                  <a href={`https://doi.org/${result.matched.doi}`} target="_blank" rel="noreferrer">
-                    {result.matched.title}
-                  </a>
-                ) : (
-                  result.matched.title
-                )}
-              </div>
-              <div className="matched-meta">
-                {result.matched.authors.slice(0, 5).join(", ")}
-                {result.matched.authors.length > 5 && " 외"}
-                {result.matched.year && ` · ${result.matched.year}`}
-                {result.matched.journal && ` · ${result.matched.journal}`}
-                {result.matched.doi && ` · ${result.matched.doi}`}
-              </div>
-            </div>
+            <RecordBox
+              rec={result.matched}
+              heading={result.verdict === "uncertain" ? "이 논문을 의도한 것일 수 있습니다:" : undefined}
+              inputJournal={result.ref.journal}
+            />
+          )}
+
+          {result.nearestMiss && !result.matched && (
+            <RecordBox
+              rec={result.nearestMiss}
+              heading="참고 — 검색 중 가장 비슷했던 결과 (동일 논문 아님):"
+            />
           )}
 
           {result.comparisons.length > 0 && (
@@ -114,13 +165,29 @@ function ResultCard({ result }: { result: VerificationResult }) {
             </p>
           )}
 
+          {citation && result.verdict !== "uncertain" && (
+            <div className="citation-block">
+              <div className="citation-head">
+                <span className="citation-label">{STYLE_LABELS[style]} 인용</span>
+                <CopyButton text={citation} label="복사" />
+              </div>
+              <pre className="citation-text">{citation}</pre>
+            </div>
+          )}
+          {citation && result.verdict === "uncertain" && (
+            <div className="citation-block">
+              <div className="citation-head">
+                <span className="citation-label">
+                  {STYLE_LABELS[style]} 인용 (아래 논문이 맞는 경우에만 사용)
+                </span>
+                <CopyButton text={citation} label="복사" />
+              </div>
+              <pre className="citation-text">{citation}</pre>
+            </div>
+          )}
+
           <div className="card-foot">
             <span className="sources">조회: {result.sourcesChecked.join(" → ")}</span>
-            {result.correctedBibtex && (
-              <button className="btn-small" onClick={copyBibtex}>
-                {copied ? "복사됨 ✓" : "정본 BibTeX 복사"}
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -133,6 +200,8 @@ export default function App() {
   const [results, setResults] = useState<VerificationResult[] | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [style, setStyle] = useState<CitationStyle>("bibtex");
+  const [copiedAll, setCopiedAll] = useState(false);
   const runningRef = useRef(false);
 
   const format = useMemo(() => (input.trim() ? detectFormat(input) : null), [input]);
@@ -158,12 +227,15 @@ export default function App() {
     }
   };
 
-  const copyAllBibtex = () => {
+  const copyAll = () => {
+    // 확실한 매칭(exact/minor)만 — uncertain은 사용자가 확인 후 개별 복사
     const all = (results ?? [])
-      .map((r) => r.correctedBibtex)
-      .filter(Boolean)
-      .join("\n\n");
+      .filter((r) => r.matched && (r.verdict === "exact" || r.verdict === "minor"))
+      .map((r) => formatCitation(r.matched!, style))
+      .join(style === "bibtex" ? "\n\n" : "\n");
     navigator.clipboard.writeText(all);
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 1500);
   };
 
   const counts = useMemo(() => {
@@ -171,6 +243,7 @@ export default function App() {
     return {
       exact: results.filter((r) => r.verdict === "exact").length,
       minor: results.filter((r) => r.verdict === "minor").length,
+      uncertain: results.filter((r) => r.verdict === "uncertain").length,
       major: results.filter((r) => r.verdict === "major").length,
       error: results.filter((r) => r.verdict === "error").length,
       retracted: results.filter((r) => r.retraction.status === "retracted").length,
@@ -226,26 +299,40 @@ export default function App() {
             <div className="summary">
               <span className="chip chip-exact">✓ 실존 {counts.exact}</span>
               <span className="chip chip-minor">! 필드 불일치 {counts.minor}</span>
+              {counts.uncertain > 0 && (
+                <span className="chip chip-uncertain">≈ 유사 논문 {counts.uncertain}</span>
+              )}
               <span className="chip chip-major">✕ 조작 의심 {counts.major}</span>
               {counts.retracted > 0 && (
                 <span className="chip chip-retracted">🚫 철회 {counts.retracted}</span>
               )}
               {counts.error > 0 && <span className="chip">? 확인 불가 {counts.error}</span>}
-              <span className="spacer" />
-              {results.some((r) => r.correctedBibtex) && (
-                <button className="btn-small" onClick={copyAllBibtex}>
-                  검증된 BibTeX 전체 복사
+            </div>
+            <div className="export-bar">
+              <label className="export-label">
+                인용 형식:
+                <select value={style} onChange={(e) => setStyle(e.target.value as CitationStyle)}>
+                  {(Object.keys(STYLE_LABELS) as CitationStyle[]).map((s) => (
+                    <option key={s} value={s}>
+                      {STYLE_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {results.some((r) => r.matched && (r.verdict === "exact" || r.verdict === "minor")) && (
+                <button className="btn-small" onClick={copyAll}>
+                  {copiedAll ? "복사됨 ✓" : "검증된 참고문헌 전체 복사"}
                 </button>
               )}
             </div>
             <div className="results">
               {results.map((r, i) => (
-                <ResultCard key={i} result={r} />
+                <ResultCard key={i} result={r} style={style} />
               ))}
             </div>
             <p className="disclaimer">
-              ⚠ 자동 판정은 참고용입니다. "필드 불일치"와 "조작 의심" 항목은 반드시 원문을 직접
-              확인하세요. DOI가 해석된다는 것만으로 인용이 올바르다는 보장은 없습니다.
+              ⚠ 자동 판정은 참고용입니다. "필드 불일치"·"유사 논문"·"조작 의심" 항목은 반드시
+              원문을 직접 확인하세요. DOI가 해석된다는 것만으로 인용이 올바르다는 보장은 없습니다.
             </p>
           </>
         )}
