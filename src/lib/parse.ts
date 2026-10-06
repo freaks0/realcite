@@ -66,6 +66,7 @@ function parseBibtex(input: string): ParsedReference[] {
       authors: authorNames.length ? authorNames.map(extractSurname).filter(Boolean) : undefined,
       authorsRaw: f.author || undefined,
       firstAuthorFull: authorNames[0],
+      lastAuthorFull: authorNames.length > 1 ? authorNames[authorNames.length - 1] : undefined,
       year: f.year ? parseInt(f.year, 10) || undefined : undefined,
       journal: f.journal || f.booktitle || undefined,
     });
@@ -101,6 +102,7 @@ function parseRis(input: string): ParsedReference[] {
         : undefined,
       authorsRaw: authorNames.length ? authorNames.join("; ") : undefined,
       firstAuthorFull: authorNames[0],
+      lastAuthorFull: authorNames.length > 1 ? authorNames[authorNames.length - 1] : undefined,
       year: yearStr ? parseInt(yearStr.slice(0, 4), 10) || undefined : undefined,
       journal: get("JO")[0] || get("T2")[0] || get("JF")[0] || undefined,
     });
@@ -213,6 +215,7 @@ function parsePlaintextItem(raw: string): ParsedReference {
     authors: names.length ? names.map(extractSurname).filter(Boolean) : undefined,
     authorsRaw: authorSegment || undefined,
     firstAuthorFull: names[0],
+    lastAuthorFull: names.length > 1 ? names[names.length - 1] : undefined,
   };
 }
 

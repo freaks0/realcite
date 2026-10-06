@@ -190,7 +190,10 @@ export async function openalexAuthorYearSearch(
   year?: number
 ): Promise<SourceRecord[]> {
   const name = encodeURIComponent(authorName.replace(/[.,|&]/g, " ").trim().slice(0, 100));
-  const yearFilter = year ? `,publication_year:${year - 1}|${year}|${year + 1}` : "";
+  // 인용 연도 자체가 틀린 경우가 흔해 ±2년까지 포용
+  const yearFilter = year
+    ? `,publication_year:${[-2, -1, 0, 1, 2].map((d) => year + d).join("|")}`
+    : "";
   const json = (await fetchJson(
     `https://api.openalex.org/works?filter=raw_author_name.search:${name}${yearFilter}&per-page=50&select=${OPENALEX_SELECT}&mailto=${MAILTO}`
   )) as { results?: OpenAlexWork[] } | null;

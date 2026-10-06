@@ -10,6 +10,8 @@ export interface ParsedReference {
   authorsRaw?: string;
   /** 1저자 전체 이름 (저자 기반 폴백 검색용) */
   firstAuthorFull?: string;
+  /** 마지막 저자 전체 이름 (교신저자인 경우가 많아 폴백 검색에 유용) */
+  lastAuthorFull?: string;
   year?: number;
   journal?: string;
   /** 파싱된 입력 형식 */
