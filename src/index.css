@@ -318,23 +318,16 @@ textarea::placeholder {
 
 .card {
   border-bottom: 1px solid var(--line-soft);
-  border-left: 3px solid transparent;
 }
 
 .card:last-child {
   border-bottom: none;
 }
 
-.card.verdict-exact { border-left-color: var(--exact); }
-.card.verdict-minor { border-left-color: var(--minor); }
-.card.verdict-uncertain { border-left-color: var(--uncertain); }
-.card.verdict-major { border-left-color: var(--major); }
-.card.retracted { border-left-color: var(--retracted); }
-
 .card-head {
   width: 100%;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   background: transparent;
   border: none;
@@ -350,19 +343,20 @@ textarea::placeholder {
 
 .badge {
   flex-shrink: 0;
-  min-width: 86px;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  padding: 2px 10px;
+  border-radius: 999px;
 }
 
-.badge-exact { color: var(--exact); }
-.badge-minor { color: var(--minor); }
-.badge-uncertain { color: var(--uncertain); }
-.badge-major { color: var(--major); }
-.badge-error { color: var(--ink-dim); }
-.badge-retracted { color: var(--retracted); }
+.badge-exact { color: var(--exact); background: color-mix(in srgb, var(--exact) 11%, transparent); }
+.badge-minor { color: var(--minor); background: color-mix(in srgb, var(--minor) 13%, transparent); }
+.badge-uncertain { color: var(--uncertain); background: color-mix(in srgb, var(--uncertain) 11%, transparent); }
+.badge-major { color: var(--major); background: color-mix(in srgb, var(--major) 11%, transparent); }
+.badge-error { color: var(--ink-dim); background: var(--panel-2); }
+.badge-retracted { color: var(--retracted); background: color-mix(in srgb, var(--retracted) 11%, transparent); }
 
 .card-raw {
   flex: 1;

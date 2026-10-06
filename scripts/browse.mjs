@@ -19,8 +19,11 @@ await page.screenshot({ path: `${SHOT_DIR}/02-example.png`, fullPage: true });
 await page.click('button:has-text("검증하기")');
 
 // 결과 대기 (실제 API 호출 — 넉넉히)
-await page.waitForSelector(".summary", { timeout: 120000 });
+await page.waitForSelector(".summary", { timeout: 180000 });
 await page.waitForTimeout(500);
+// 카드 하나를 펼친 상태 포함해 캡처
+await page.click(".card:first-child .card-head");
+await page.waitForTimeout(200);
 await page.screenshot({ path: `${SHOT_DIR}/03-results.png`, fullPage: true });
 
 // 요약 칩 텍스트 출력

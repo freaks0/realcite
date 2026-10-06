@@ -108,6 +108,17 @@ async function checkRetraction(rec: SourceRecord | undefined): Promise<Retractio
 export async function verifyReference(ref: ParsedReference): Promise<VerificationResult> {
   const sourcesChecked: string[] = [];
   const notes: string[] = [];
+  const failedSources: string[] = [];
+
+  /** 소스 하나의 장애(일일 한도 초과 등)가 전체 판정을 무너뜨리지 않도록 격리 */
+  const safe = async <T,>(label: string, task: Promise<T>, fallback: T): Promise<T> => {
+    try {
+      return await task;
+    } catch {
+      failedSources.push(label);
+      return fallback;
+    }
+  };
 
   try {
     let matched: SourceRecord | undefined;
@@ -118,10 +129,10 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
     // 1단계: DOI 해석 (Crossref → 실패 시 OpenAlex: arXiv 등 DataCite DOI 커버)
     if (ref.doi) {
       sourcesChecked.push("Crossref (DOI)");
-      let rec = await crossrefByDoi(ref.doi);
+      let rec = await safe("Crossref (DOI)", crossrefByDoi(ref.doi), null);
       if (!rec) {
         sourcesChecked.push("OpenAlex (DOI)");
-        rec = await openalexByDoi(ref.doi);
+        rec = await safe("OpenAlex (DOI)", openalexByDoi(ref.doi), null);
       }
       if (rec) {
         // DOI가 해석되어도 진짜라는 보장은 없음 — 제목이 입력과 맞는지 확인
@@ -157,14 +168,14 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         );
 
       sourcesChecked.push("Crossref (서지 검색)");
-      const pool = await crossrefSearchBibliographic(ref.raw);
+      const pool = await safe("Crossref (서지 검색)", crossrefSearchBibliographic(ref.raw), []);
       let best = pickBest(pool);
 
       // Crossref 최선 후보가 확신 수준이 아니면 다른 소스 교차 확인
       // (NeurIPS 등 Crossref에 DOI 미등록인 학회 논문 커버)
       if ((!best || candScore(best) < 0.9) && ref.title) {
         sourcesChecked.push("OpenAlex (제목 검색)");
-        const oaPool = await openalexTitleSearch(ref.title);
+        const oaPool = await safe("OpenAlex (제목 검색)", openalexTitleSearch(ref.title), []);
         best = pickBest([...(best ? [best] : []), ...oaPool]);
       }
       if (!best || candScore(best) < 0.9) {
@@ -199,7 +210,11 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         );
         for (const authorQuery of authorQueries) {
           sourcesChecked.push(`OpenAlex (저자 검색: ${authorQuery})`);
-          const byAuthor = await openalexAuthorYearSearch(authorQuery, ref.year);
+          const byAuthor = await safe(
+            "OpenAlex (저자 검색)",
+            openalexAuthorYearSearch(authorQuery, ref.year),
+            []
+          );
           let bestA: SourceRecord | undefined;
           let bestAScore = 0;
           for (const cand of byAuthor) {
@@ -221,6 +236,22 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
 
     // ---- 판정 ----
     if (!matched) {
+      // 일부 소스가 장애(무료 한도 초과 등)였다면 "조작 의심"을 단정할 수 없음 → 판정 보류
+      if (failedSources.length > 0) {
+        const failed = [...new Set(failedSources)].join(", ");
+        return {
+          ref,
+          verdict: "error",
+          nearestMiss,
+          confidence: 0,
+          comparisons: [],
+          retraction: { status: "none" },
+          sourcesChecked,
+          reason:
+            `일부 DB(${failed})에 접속하지 못해 판정을 보류합니다 — 무료 일일 한도 초과 또는 ` +
+            "일시 장애일 수 있습니다. 찾지 못한 것이 조작을 뜻하지 않으니 잠시 후 다시 시도하세요.",
+        };
+      }
       return {
         ref,
         verdict: "major",
@@ -235,6 +266,10 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
           "단, 제목이 변형된 인용이거나 주요 서지 DB에 색인되지 않은 문헌(DOI 미등록 학회지, " +
           "ResearchGate에만 공개된 논문 등)일 수도 있으니 아래 Google Scholar 링크로 직접 확인하세요.",
       };
+    }
+
+    if (failedSources.length > 0) {
+      notes.push(`일부 소스 응답 실패: ${[...new Set(failedSources)].join(", ")}`);
     }
 
     const comparisons = buildComparisons(ref, matched);
