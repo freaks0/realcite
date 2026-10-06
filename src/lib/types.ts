@@ -25,7 +25,7 @@ export interface RecordAuthor {
 
 /** 학술 DB에서 찾은 레코드 (소스 공통 정규화 형태) */
 export interface SourceRecord {
-  source: "crossref" | "openalex" | "semanticscholar";
+  source: "crossref" | "openalex" | "semanticscholar" | "datacite" | "europepmc";
   doi?: string;
   title: string;
   authors: RecordAuthor[];
