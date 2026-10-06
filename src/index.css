@@ -574,6 +574,18 @@ textarea::placeholder {
   color: var(--ink);
 }
 
+.foot-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.example-note {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
 .disclaimer {
   margin-top: 16px;
   padding: 10px 14px;

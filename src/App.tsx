@@ -189,16 +189,28 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
 
           <div className="card-foot">
             <span className="sources">조회: {result.sourcesChecked.join(" → ")}</span>
-            <a
-              className="btn-small gs-link"
-              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(
-                result.ref.title ?? result.ref.raw.slice(0, 150)
-              )}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Google Scholar에서 확인 ↗
-            </a>
+            <span className="foot-links">
+              <a
+                className="btn-small gs-link"
+                href={`https://scholar.google.com/scholar?q=${encodeURIComponent(
+                  result.ref.title ?? result.ref.raw.slice(0, 150)
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Google Scholar에서 확인 ↗
+              </a>
+              <a
+                className="btn-small gs-link"
+                href={`https://arxiv.org/search/?searchtype=all&query=${encodeURIComponent(
+                  result.ref.title ?? result.ref.raw.slice(0, 150)
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                arXiv에서 확인 ↗
+              </a>
+            </span>
           </div>
         </div>
       )}
@@ -296,6 +308,12 @@ export default function App() {
               {running ? `검증 중 ${progress!.done}/${progress!.total}` : "검증하기"}
             </button>
           </div>
+          {input === EXAMPLE && (
+            <p className="example-note">
+              예시 안내: [3]번은 조작 의심 판정을 시연하기 위해 일부러 넣은 가짜 인용입니다
+              (실존하지 않는 논문·저널). [4]번은 실존하지만 공식 철회된 논문입니다.
+            </p>
+          )}
           {running && (
             <div className="progress">
               <div
