@@ -46,6 +46,8 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 
 ## 알려진 한계 (MVP)
 
+- OpenAlex는 IP당 무료 일일 크레딧제 — 같은 IP를 공유하는 환경(대학 캠퍼스 등)에서 한도가 소진될 수 있음. 소스 장애는 판정별로 격리되어 나머지 소스만으로 계속 진행하며, 소스 부족 상태에서 "못 찾음"은 조작 의심이 아닌 **판정 보류(확인 불가)**로 표시됨.
+
 - Semantic Scholar match 엔드포인트는 브라우저 CORS를 차단 → 웹에서는 Crossref+OpenAlex만 동작 (Node 환경에선 S2도 동작). Phase 2에서 Cloudflare Workers 무료 프록시로 해결 예정.
 - 상류 DB 메타데이터 오류는 그대로 반영됨 (예: NeurIPS 2017 논문이 2025년 재등록 DOI로 기록된 사례) — 이런 경우 ⚠️로 표시되어 수동 확인 유도.
 - 한국어 문헌(KCI)은 Phase 2 (프록시 + 라이선스 확인 필요).

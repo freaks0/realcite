@@ -9,7 +9,8 @@ const EXAMPLE = `[1] Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). "Atten
 [2] Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). BERT: Pre-training of deep bidirectional transformers for language understanding. NAACL-HLT. https://doi.org/10.18653/v1/N19-1423
 [3] Smith, J., & Johnson, K. (2021). "Quantum neural fusion networks for sentiment-aware blockchain analytics." Journal of Advanced Computational Metaphysics, 14(3), 221-240.
 [4] Wakefield, A.J., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637-641. doi:10.1016/S0140-6736(97)11096-0
-[5] Sangkeum Lee, "Blind reset recycles ancilla qubits for variational quantum workloads," Discover Quantum Science, 2026.`;
+[5] Kingma, D. P., & Ba, J. (2015). Adam: A method for stochastic optimization. arXiv. doi:10.48550/arXiv.1412.6980
+[6] Jumper, J., Evans, R., Pritzel, A., et al. (2021). Highly accurate protein structure prediction with AlphaFold. Nature, 596(7873), 583-589.`;
 
 const VERDICT_META: Record<Verdict, { icon: string; label: string; cls: string }> = {
   exact: { icon: "✓", label: "실존 확인", cls: "exact" },
@@ -85,7 +86,7 @@ function RecordBox({
 }
 
 function ResultCard({ result, style }: { result: VerificationResult; style: CitationStyle }) {
-  const [open, setOpen] = useState(result.verdict !== "exact");
+  const [open, setOpen] = useState(false);
   const meta = VERDICT_META[result.verdict];
   const retracted = result.retraction.status === "retracted";
   const citation = result.matched ? formatCitation(result.matched, style) : null;
