@@ -175,10 +175,12 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
 
       if (best) {
         const ts = titleScore(ref, best);
-        if (titleOk(ref, best)) {
-          // 제목 일치 → 같은 논문
+        const am = authorMatches(ref, best);
+        // "같은 논문" 수락 조건: 제목 일치 + (제목이 아주 확실하거나, 저자가 반증되지 않음)
+        // — 제목이 문턱 근처인데 저자까지 다르면 동명 유사 논문일 가능성이 높음
+        if (titleOk(ref, best) && !(am === false && ts < 0.85)) {
           matched = best;
-        } else if (ts >= 0.45 && authorMatches(ref, best) === true && yearMatches(ref, best) !== false) {
+        } else if (ts >= 0.45 && am === true && yearMatches(ref, best) !== false) {
           // 제목은 다르지만 저자·연도가 맞음 → 유사 논문 (제목이 변형된 인용일 가능성)
           matched = best;
           uncertain = true;
@@ -189,23 +191,30 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       }
 
       // 3단계: 저자+연도 폴백 — AI가 제목을 지어낸 인용은 제목 검색이 전부 실패하므로,
-      // 같은 저자의 해당 연도 논문 중 가장 비슷한 것을 찾아 후보로 제시
-      if (!matched && ref.firstAuthorFull) {
-        sourcesChecked.push("OpenAlex (저자 검색)");
-        const byAuthor = await openalexAuthorYearSearch(ref.firstAuthorFull, ref.year);
-        let bestA: SourceRecord | undefined;
-        let bestAScore = 0;
-        for (const cand of byAuthor) {
-          const s = titleScore(ref, cand);
-          if (s > bestAScore) {
-            bestAScore = s;
-            bestA = cand;
+      // 같은 저자의 해당 연도(±2) 논문 중 가장 비슷한 것을 찾아 후보로 제시.
+      // 1저자로 못 찾으면 마지막 저자(교신저자인 경우가 많음)로 한 번 더 시도.
+      if (!matched) {
+        const authorQueries = [ref.firstAuthorFull, ref.lastAuthorFull].filter(
+          (a, i, arr): a is string => !!a && arr.indexOf(a) === i
+        );
+        for (const authorQuery of authorQueries) {
+          sourcesChecked.push(`OpenAlex (저자 검색: ${authorQuery})`);
+          const byAuthor = await openalexAuthorYearSearch(authorQuery, ref.year);
+          let bestA: SourceRecord | undefined;
+          let bestAScore = 0;
+          for (const cand of byAuthor) {
+            const s = titleScore(ref, cand);
+            if (s > bestAScore) {
+              bestAScore = s;
+              bestA = cand;
+            }
           }
-        }
-        if (bestA && bestAScore >= 0.25) {
-          matched = bestA;
-          uncertain = true;
-          notes.push("제목 검색은 실패했으나 동일 저자·연도에서 유사 논문 발견");
+          if (bestA && bestAScore >= 0.25) {
+            matched = bestA;
+            uncertain = true;
+            notes.push("제목 검색은 실패했으나 동일 저자·비슷한 연도에서 유사 논문 발견");
+            break;
+          }
         }
       }
     }
@@ -223,7 +232,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         reason:
           (notes.length ? notes.join("; ") + ". " : "") +
           "조회한 모든 DB에서 일치하는 실존 문헌을 찾지 못함 — 조작(할루시네이션) 의심. " +
-          "단, 제목·저널명이 변형된 실존 논문일 가능성도 있으니 직접 확인하세요.",
+          "단, 제목이 변형된 인용이거나 주요 서지 DB에 색인되지 않은 문헌(DOI 미등록 학회지, " +
+          "ResearchGate에만 공개된 논문 등)일 수도 있으니 아래 Google Scholar 링크로 직접 확인하세요.",
       };
     }
 

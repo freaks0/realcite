@@ -188,6 +188,16 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
 
           <div className="card-foot">
             <span className="sources">조회: {result.sourcesChecked.join(" → ")}</span>
+            <a
+              className="btn-small gs-link"
+              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(
+                result.ref.title ?? result.ref.raw.slice(0, 150)
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Google Scholar에서 확인 ↗
+            </a>
           </div>
         </div>
       )}

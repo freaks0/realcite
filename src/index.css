@@ -556,6 +556,11 @@ button:disabled {
   font-size: 0.72rem;
 }
 
+.gs-link {
+  text-decoration: none;
+  color: var(--text);
+}
+
 .disclaimer {
   margin-top: 18px;
   color: var(--text-dim);

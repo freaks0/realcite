@@ -5,12 +5,14 @@ const STOPWORDS = new Set([
   "is", "are", "at", "from", "its", "their", "using", "via",
 ]);
 
-/** 비교용 정규화: 소문자, 발음기호 제거, 영숫자·한글만 남김 */
+/** 비교용 정규화: 소문자, 발음기호 제거, 영숫자·한글만 남김 + 흔한 표기 변형 통일 */
 export function normalize(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/\bp2p\b/g, "peer to peer")
+    .replace(/isation\b/g, "ization") // 영국식 → 미국식
     .replace(/[^a-z0-9가-힣\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -40,7 +42,8 @@ export function titleSimilarity(a: string, b: string): number {
  * 얼마나 포함되는가. 플레인텍스트 인용처럼 제목을 따로 못 뽑은 경우에 사용.
  */
 export function containment(needle: string, haystack: string): number {
-  const tn = tokens(needle);
+  // 중복 토큰("peer-to-peer" → peer×2)이 점수를 부풀리지 않도록 고유 토큰 기준
+  const tn = [...new Set(tokens(needle))];
   if (tn.length === 0) return 0;
   const th = new Set(tokens(haystack));
   let found = 0;
