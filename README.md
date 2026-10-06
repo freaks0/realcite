@@ -1,6 +1,6 @@
 # CiteGuard — 논문 인용 검증 도구
 
-AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고문헌 목록을 붙여넣으면 Crossref · OpenAlex · Semantic Scholar에 실시간 대조해 실존 여부·메타데이터 정확성·철회(retraction) 여부를 검증합니다.
+AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고문헌 목록을 붙여넣으면 Crossref · DataCite(arXiv) · Europe PMC · OpenAlex · Semantic Scholar에 실시간 대조해 실존 여부·메타데이터 정확성·철회(retraction) 여부를 검증합니다.
 
 > 배경: LLM이 생성한 인용의 11~57%가 조작이라는 감사 결과가 있고(arXiv 2603.03299), 조작 인용은 이미 출판 문헌에 침투 중입니다. 기획·조사 문서는 `../citation-verifier-planning/` 참고.
 
@@ -17,10 +17,11 @@ AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고�
 
 ```
 입력 → 파싱 (BibTeX/RIS/플레인텍스트, DOI·제목·연도 추출)
-  → [DOI 있음] Crossref 해석 → 실패 시 OpenAlex (DataCite DOI 커버)
+  → [DOI 있음] Crossref 해석 → DataCite(arXiv 등 저장소 DOI) → OpenAlex
       → 제목 일치 확인 (DOI 도용 탐지)
   → [DOI 없음/실패] Crossref 서지 검색 (query.bibliographic)
-      → 확신 미달 시 OpenAlex 제목 검색 → Semantic Scholar (보조)
+      → 확신 미달 시 DataCite → Europe PMC → OpenAlex 제목 검색 → Semantic Scholar
+      → 그래도 없으면 OpenAlex 저자+연도(±2) 검색으로 유사 논문 제시
       → 후보 스코어링: 제목 유사도 + 연도·저자 일치 보너스/페널티
   → 철회 확인 (Crossref filter=updates: + OpenAlex is_retracted)
   → 판정 + 근거 + 교정 BibTeX
@@ -48,7 +49,7 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 
 - OpenAlex는 IP당 무료 일일 크레딧제 — 같은 IP를 공유하는 환경(대학 캠퍼스 등)에서 한도가 소진될 수 있음. 소스 장애는 판정별로 격리되어 나머지 소스만으로 계속 진행하며, 소스 부족 상태에서 "못 찾음"은 조작 의심이 아닌 **판정 보류(확인 불가)**로 표시됨.
 
-- Semantic Scholar match 엔드포인트는 브라우저 CORS를 차단 → 웹에서는 Crossref+OpenAlex만 동작 (Node 환경에선 S2도 동작). Phase 2에서 Cloudflare Workers 무료 프록시로 해결 예정.
+- Semantic Scholar는 무키 공유 풀이라 간헐적으로 429를 반환하며, 429 응답에 CORS 헤더가 없어 브라우저 콘솔에 CORS 오류로 표시됨 (정상 응답 시엔 브라우저에서도 동작). 안정화는 Cloudflare Workers 무료 프록시(배포 단계)로 예정.
 - 상류 DB 메타데이터 오류는 그대로 반영됨 (예: NeurIPS 2017 논문이 2025년 재등록 DOI로 기록된 사례) — 이런 경우 ⚠️로 표시되어 수동 확인 유도.
 - 한국어 문헌(KCI)은 Phase 2 (프록시 + 라이선스 확인 필요).
 - 자동 판정은 참고용. ⚠️/❌ 항목은 반드시 원문 확인.
