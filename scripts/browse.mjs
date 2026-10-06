@@ -30,4 +30,12 @@ const badges = await page.$$eval(".badge", (els) => els.map((e) => e.textContent
 console.log("BADGES:", badges.join(" | "));
 console.log("CONSOLE_ERRORS:", errors.length ? errors.join("\n") : "(none)");
 
+// 다크 테마 초기 화면
+const darkPage = await (
+  await browser.newContext({ viewport: { width: 1100, height: 900 }, colorScheme: "dark" })
+).newPage();
+await darkPage.goto("http://localhost:5173", { waitUntil: "networkidle" });
+await darkPage.click('button:has-text("예시 넣기")');
+await darkPage.screenshot({ path: `${SHOT_DIR}/04-dark.png` });
+
 await browser.close();

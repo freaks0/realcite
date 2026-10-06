@@ -75,7 +75,7 @@ function RecordBox({
       </div>
       {rec.isPreprint && (
         <div className="preprint-note">
-          📄 이 논문은 저장소(arXiv 등)에 올라온 프리프린트로만 확인됩니다 — 피어리뷰 저널
+          이 논문은 저장소(arXiv 등)에 올라온 프리프린트로만 확인됩니다 — 피어리뷰 저널
           게재본은 찾지 못했습니다.
           {inputJournal && ` 입력에 적힌 저널명(${inputJournal})은 확인되지 않았습니다.`}
         </div>
@@ -96,9 +96,9 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
         <span className={`badge badge-${meta.cls}`}>
           {meta.icon} {meta.label}
         </span>
-        {retracted && <span className="badge badge-retracted">🚫 철회된 논문</span>}
+        {retracted && <span className="badge badge-retracted">철회됨</span>}
         {result.retraction.status === "concern" && (
-          <span className="badge badge-retracted">⚠ 우려 표명</span>
+          <span className="badge badge-retracted">우려 표명</span>
         )}
         <span className="card-raw">{result.ref.raw}</span>
         <span className="chevron">{open ? "▾" : "▸"}</span>
@@ -263,6 +263,7 @@ export default function App() {
   return (
     <div className="page">
       <header>
+        <div className="eyebrow">Citation Verification</div>
         <div className="wordmark">
           Cite<span>Guard</span>
         </div>
@@ -307,16 +308,30 @@ export default function App() {
         {counts && results && (
           <>
             <div className="summary">
-              <span className="chip chip-exact">✓ 실존 {counts.exact}</span>
-              <span className="chip chip-minor">! 필드 불일치 {counts.minor}</span>
+              <span className="chip chip-exact">
+                <span className="count">{counts.exact}</span>실존 확인
+              </span>
+              <span className="chip chip-minor">
+                <span className="count">{counts.minor}</span>필드 불일치
+              </span>
               {counts.uncertain > 0 && (
-                <span className="chip chip-uncertain">≈ 유사 논문 {counts.uncertain}</span>
+                <span className="chip chip-uncertain">
+                  <span className="count">{counts.uncertain}</span>유사 논문
+                </span>
               )}
-              <span className="chip chip-major">✕ 조작 의심 {counts.major}</span>
+              <span className="chip chip-major">
+                <span className="count">{counts.major}</span>조작 의심
+              </span>
               {counts.retracted > 0 && (
-                <span className="chip chip-retracted">🚫 철회 {counts.retracted}</span>
+                <span className="chip chip-retracted">
+                  <span className="count">{counts.retracted}</span>철회됨
+                </span>
               )}
-              {counts.error > 0 && <span className="chip">? 확인 불가 {counts.error}</span>}
+              {counts.error > 0 && (
+                <span className="chip">
+                  <span className="count">{counts.error}</span>확인 불가
+                </span>
+              )}
             </div>
             <div className="export-bar">
               <label className="export-label">
@@ -341,7 +356,7 @@ export default function App() {
               ))}
             </div>
             <p className="disclaimer">
-              ⚠ 자동 판정은 참고용입니다. "필드 불일치"·"유사 논문"·"조작 의심" 항목은 반드시
+              자동 판정은 참고용입니다. "필드 불일치"·"유사 논문"·"조작 의심" 항목은 반드시
               원문을 직접 확인하세요. DOI가 해석된다는 것만으로 인용이 올바르다는 보장은 없습니다.
             </p>
           </>
