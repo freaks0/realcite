@@ -10,6 +10,9 @@ import {
   crossrefByDoi,
   crossrefRetractionCheck,
   crossrefSearchBibliographic,
+  dataciteByDoi,
+  dataciteTitleSearch,
+  europePmcTitleSearch,
   openalexAuthorYearSearch,
   openalexByDoi,
   openalexRetractedFlag,
@@ -131,6 +134,11 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       sourcesChecked.push("Crossref (DOI)");
       let rec = await safe("Crossref (DOI)", crossrefByDoi(ref.doi), null);
       if (!rec) {
+        // arXiv 등 저장소 DOI는 DataCite 소관
+        sourcesChecked.push("DataCite (DOI)");
+        rec = await safe("DataCite (DOI)", dataciteByDoi(ref.doi), null);
+      }
+      if (!rec) {
         sourcesChecked.push("OpenAlex (DOI)");
         rec = await safe("OpenAlex (DOI)", openalexByDoi(ref.doi), null);
       }
@@ -171,14 +179,26 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       const pool = await safe("Crossref (서지 검색)", crossrefSearchBibliographic(ref.raw), []);
       let best = pickBest(pool);
 
-      // Crossref 최선 후보가 확신 수준이 아니면 다른 소스 교차 확인
-      // (NeurIPS 등 Crossref에 DOI 미등록인 학회 논문 커버)
-      if ((!best || candScore(best) < 0.9) && ref.title) {
+      // Crossref 최선 후보가 확신 수준이 아니면 다른 소스 교차 확인.
+      // 무제한 무료 소스(DataCite: arXiv 커버, Europe PMC: 의생명)를 먼저 쓰고,
+      // 일일 한도가 있는 OpenAlex 검색은 그래도 못 찾았을 때만 사용.
+      const needMore = () => !best || candScore(best) < 0.9;
+      if (needMore() && ref.title) {
+        sourcesChecked.push("DataCite (제목 검색)");
+        const dcPool = await safe("DataCite (제목 검색)", dataciteTitleSearch(ref.title), []);
+        best = pickBest([...(best ? [best] : []), ...dcPool]);
+      }
+      if (needMore() && ref.title) {
+        sourcesChecked.push("Europe PMC");
+        const epPool = await safe("Europe PMC", europePmcTitleSearch(ref.title), []);
+        best = pickBest([...(best ? [best] : []), ...epPool]);
+      }
+      if (needMore() && ref.title) {
         sourcesChecked.push("OpenAlex (제목 검색)");
         const oaPool = await safe("OpenAlex (제목 검색)", openalexTitleSearch(ref.title), []);
         best = pickBest([...(best ? [best] : []), ...oaPool]);
       }
-      if (!best || candScore(best) < 0.9) {
+      if (needMore()) {
         sourcesChecked.push("Semantic Scholar");
         const s2 = await s2TitleMatch(ref.title ?? ref.raw);
         if (s2 && (!best || candScore(s2) > candScore(best))) best = s2;
@@ -248,8 +268,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
           retraction: { status: "none" },
           sourcesChecked,
           reason:
-            `일부 DB(${failed})에 접속하지 못해 판정을 보류합니다 — 무료 일일 한도 초과 또는 ` +
-            "일시 장애일 수 있습니다. 찾지 못한 것이 조작을 뜻하지 않으니 잠시 후 다시 시도하세요.",
+            `일부 DB(${failed})에 접속하지 못해 판정을 보류합니다. 무료 일일 한도 초과이거나 일시 장애일 수 ` +
+            "있습니다. 찾지 못한 것이 조작을 뜻하지는 않으니 잠시 후 다시 시도해 주세요.",
         };
       }
       return {
@@ -262,7 +282,7 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         sourcesChecked,
         reason:
           (notes.length ? notes.join("; ") + ". " : "") +
-          "조회한 모든 DB에서 일치하는 실존 문헌을 찾지 못함 — 조작(할루시네이션) 의심. " +
+          "조회한 모든 DB에서 일치하는 문헌을 찾지 못했습니다. 조작(할루시네이션)이 의심됩니다. " +
           "단, 제목이 변형된 인용이거나 주요 서지 DB에 색인되지 않은 문헌(DOI 미등록 학회지, " +
           "ResearchGate에만 공개된 논문 등)일 수도 있으니 아래 Google Scholar 링크로 직접 확인하세요.",
       };
@@ -288,7 +308,7 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         reason:
           (notes.length ? notes.join("; ") + ". " : "") +
           "입력된 제목과 일치하는 논문은 없지만, 저자·연도가 맞는 유사 논문을 찾았습니다. " +
-          "AI가 실존 논문의 제목을 변형해 인용했을 가능성이 있습니다 — 아래 논문이 의도한 것인지 직접 확인하세요.",
+          "AI가 실존 논문의 제목을 변형해 인용했을 가능성이 있습니다. 아래 논문이 의도한 것인지 직접 확인하세요.",
       };
     }
 
@@ -319,8 +339,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       reason:
         (notes.length ? notes.join("; ") + ". " : "") +
         (mismatches.length
-          ? `같은 논문으로 보이나 ${mismatches.map((m) => m.field).join(", ")} 필드 불일치 — 교정 필요`
-          : "일치 문헌을 찾았으나 신뢰도가 다소 낮음 — 수동 확인 권장"),
+          ? `같은 논문으로 보이지만 ${mismatches.map((m) => m.field).join(", ")} 필드가 입력과 다릅니다. 아래 값으로 교정하세요.`
+          : "일치하는 문헌을 찾았지만 신뢰도가 다소 낮습니다. 직접 확인을 권장합니다."),
     };
   } catch (e) {
     return {
@@ -330,7 +350,7 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       comparisons: [],
       retraction: { status: "none" },
       sourcesChecked,
-      reason: "네트워크/API 오류로 검증하지 못함 — 다시 시도해 주세요.",
+      reason: "네트워크 또는 API 오류로 검증하지 못했습니다. 다시 시도해 주세요.",
       error: e instanceof Error ? e.message : String(e),
     };
   }

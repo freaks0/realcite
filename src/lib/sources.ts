@@ -122,7 +122,128 @@ export async function crossrefRetractionCheck(doi: string): Promise<RetractionSt
   return found;
 }
 
-/* ---------------- OpenAlex (단건·필터 조회 위주 — 크레딧 절약) ---------------- */
+/* ---------------- DataCite (무키·무제한·CORS — arXiv 등 저장소 DOI 전체 커버) ---------------- */
+
+interface DataCiteDoi {
+  id?: string;
+  attributes?: {
+    doi?: string;
+    titles?: { title?: string }[];
+    creators?: { name?: string; givenName?: string; familyName?: string }[];
+    publicationYear?: number;
+    publisher?: string;
+    container?: { title?: string };
+    types?: { resourceTypeGeneral?: string };
+    url?: string;
+  };
+}
+
+function dataciteToRecord(d: DataCiteDoi): SourceRecord | null {
+  const a = d.attributes;
+  const title = a?.titles?.[0]?.title?.replace(/\s+/g, " ").trim();
+  if (!a || !title) return null;
+  const doi = (a.doi ?? d.id)?.toLowerCase();
+  const authors: RecordAuthor[] = [];
+  for (const c of a.creators ?? []) {
+    if (c.familyName) authors.push({ family: c.familyName, given: c.givenName });
+    else if (c.name) {
+      // DataCite name은 "Family, Given" 형식이 흔함
+      const comma = c.name.includes(",")
+        ? { family: c.name.split(",")[0].trim(), given: c.name.split(",")[1]?.trim() }
+        : splitDisplayName(c.name);
+      if (comma?.family) authors.push(comma);
+    }
+  }
+  const journal = a.container?.title || a.publisher;
+  return {
+    source: "datacite",
+    doi,
+    title,
+    authors,
+    year: a.publicationYear,
+    journal,
+    url: doi ? `https://doi.org/${doi}` : a.url,
+    type: a.types?.resourceTypeGeneral,
+    isPreprint:
+      a.types?.resourceTypeGeneral === "Preprint" ||
+      /arxiv|zenodo|preprint/i.test(journal ?? "") ||
+      (doi ?? "").startsWith("10.48550/"),
+  };
+}
+
+export async function dataciteByDoi(doi: string): Promise<SourceRecord | null> {
+  const json = (await fetchJson(
+    `https://api.datacite.org/dois/${encodeURIComponent(doi)}`
+  )) as { data?: DataCiteDoi } | null;
+  return json?.data ? dataciteToRecord(json.data) : null;
+}
+
+export async function dataciteTitleSearch(title: string): Promise<SourceRecord[]> {
+  const q = encodeURIComponent(`titles.title:"${title.slice(0, 200).replace(/"/g, "")}"`);
+  const json = (await fetchJson(
+    `https://api.datacite.org/dois?query=${q}&page%5Bsize%5D=5`
+  )) as { data?: DataCiteDoi[] } | null;
+  return (json?.data ?? [])
+    .map(dataciteToRecord)
+    .filter((r): r is SourceRecord => r !== null);
+}
+
+/* ---------------- Europe PMC (무키·CORS — 의생명 + 프리프린트) ---------------- */
+
+interface EuropePmcResult {
+  title?: string;
+  authorString?: string;
+  pubYear?: string;
+  journalTitle?: string;
+  doi?: string;
+  source?: string;
+}
+
+export async function europePmcTitleSearch(title: string): Promise<SourceRecord[]> {
+  const q = encodeURIComponent(`TITLE:"${title.slice(0, 200).replace(/"/g, "")}"`);
+  const json = (await fetchJson(
+    `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${q}&format=json&pageSize=5`
+  )) as { resultList?: { result?: EuropePmcResult[] } } | null;
+  const out: SourceRecord[] = [];
+  for (const r of json?.resultList?.result ?? []) {
+    if (!r.title) continue;
+    out.push({
+      source: "europepmc",
+      doi: r.doi,
+      title: r.title.replace(/\.$/, ""),
+      authors: (r.authorString ?? "")
+        .split(/,\s*/)
+        .flatMap((n): RecordAuthor[] => {
+          // "Jumper J" 형식: 앞이 성
+          const parts = n.replace(/\.$/, "").trim().split(/\s+/);
+          if (!parts[0]) return [];
+          return [{ family: parts[0], given: parts.slice(1).join(" ") || undefined }];
+        }),
+      year: r.pubYear ? parseInt(r.pubYear, 10) || undefined : undefined,
+      journal: r.journalTitle,
+      url: r.doi ? `https://doi.org/${r.doi}` : undefined,
+      isPreprint: r.source === "PPR",
+    });
+  }
+  return out;
+}
+
+/* ---------------- OpenAlex (단건 조회는 무료, 검색은 일일 한도 — 한도 시 즉시 스킵) ---------------- */
+
+let oaSearchExhausted = false;
+
+/** 검색(리스트/필터) 전용 fetch: 429(일일 예산 소진)면 세션 내 재시도 없이 즉시 차단 */
+async function oaSearchFetch(url: string): Promise<unknown | null> {
+  if (oaSearchExhausted) throw new Error("OpenAlex 검색 일일 무료 한도 소진");
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (res.status === 404) return null;
+  if (res.status === 429) {
+    oaSearchExhausted = true;
+    throw new Error("OpenAlex 검색 일일 무료 한도 소진");
+  }
+  if (!res.ok) throw new Error(`OpenAlex 오류 ${res.status}`);
+  return res.json();
+}
 
 interface OpenAlexWork {
   doi?: string;
@@ -173,7 +294,7 @@ export async function openalexByDoi(doi: string): Promise<SourceRecord | null> {
  */
 export async function openalexTitleSearch(title: string): Promise<SourceRecord[]> {
   const q = encodeURIComponent(title.slice(0, 250).replace(/[,|&]/g, " "));
-  const json = (await fetchJson(
+  const json = (await oaSearchFetch(
     `https://api.openalex.org/works?filter=title.search:${q}&per-page=5&select=${OPENALEX_SELECT}&mailto=${MAILTO}`
   )) as { results?: OpenAlexWork[] } | null;
   return (json?.results ?? [])
@@ -194,7 +315,7 @@ export async function openalexAuthorYearSearch(
   const yearFilter = year
     ? `,publication_year:${[-2, -1, 0, 1, 2].map((d) => year + d).join("|")}`
     : "";
-  const json = (await fetchJson(
+  const json = (await oaSearchFetch(
     `https://api.openalex.org/works?filter=raw_author_name.search:${name}${yearFilter}&per-page=50&select=${OPENALEX_SELECT}&mailto=${MAILTO}`
   )) as { results?: OpenAlexWork[] } | null;
   return (json?.results ?? [])

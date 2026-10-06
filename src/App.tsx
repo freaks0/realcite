@@ -76,7 +76,7 @@ function RecordBox({
       </div>
       {rec.isPreprint && (
         <div className="preprint-note">
-          이 논문은 저장소(arXiv 등)에 올라온 프리프린트로만 확인됩니다 — 피어리뷰 저널
+          이 논문은 저장소(arXiv 등)에 올라온 프리프린트로만 확인되며, 피어리뷰 저널
           게재본은 찾지 못했습니다.
           {inputJournal && ` 입력에 적힌 저널명(${inputJournal})은 확인되지 않았습니다.`}
         </div>
@@ -125,7 +125,7 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
           {result.nearestMiss && !result.matched && (
             <RecordBox
               rec={result.nearestMiss}
-              heading="참고 — 검색 중 가장 비슷했던 결과 (동일 논문 아님):"
+              heading="참고: 검색 중 가장 비슷했던 결과 (동일 논문 아님)"
             />
           )}
 
@@ -154,7 +154,7 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
 
           {retracted && "noticeDoi" in result.retraction && result.retraction.noticeDoi && (
             <p className="retraction-note">
-              이 논문은 공식 철회되었습니다 —{" "}
+              이 논문은 공식 철회되었습니다.{" "}
               <a
                 href={`https://doi.org/${result.retraction.noticeDoi}`}
                 target="_blank"
@@ -269,8 +269,9 @@ export default function App() {
           Cite<span>Guard</span>
         </div>
         <p className="tagline">
-          AI가 찾아준 논문, 진짜인지 확인하세요 — 참고문헌을 붙여넣으면 Crossref·OpenAlex·Semantic
-          Scholar에 실시간 대조해 실존 여부와 철회 여부를 검증합니다.
+          AI가 찾아준 논문, 진짜인지 확인하세요. 참고문헌을 붙여넣으면 Crossref, OpenAlex,
+          DataCite(arXiv), Europe PMC 등 공개 학술 DB에 실시간 대조해 실존 여부와 철회
+          여부를 검증합니다.
         </p>
       </header>
 
@@ -279,7 +280,7 @@ export default function App() {
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={"참고문헌 목록을 붙여넣으세요.\n\n지원 형식: 플레인텍스트([1] 번호 목록, 줄 단위), BibTeX, RIS — 자동 감지됩니다."}
+            placeholder={"참고문헌 목록을 붙여넣으세요.\n\n플레인텍스트([1] 번호 목록, 줄 단위), BibTeX, RIS 형식을 자동 감지합니다."}
             rows={10}
             spellCheck={false}
             disabled={running}
@@ -357,8 +358,11 @@ export default function App() {
               ))}
             </div>
             <p className="disclaimer">
-              자동 판정은 참고용입니다. "필드 불일치"·"유사 논문"·"조작 의심" 항목은 반드시
-              원문을 직접 확인하세요. DOI가 해석된다는 것만으로 인용이 올바르다는 보장은 없습니다.
+              자동 판정은 참고용입니다.
+              <br />
+              "필드 불일치", "유사 논문", "조작 의심" 항목은 반드시 원문을 직접 확인하세요.
+              <br />
+              DOI가 해석된다는 것만으로 인용이 올바르다는 보장은 없습니다.
             </p>
           </>
         )}
@@ -366,11 +370,9 @@ export default function App() {
 
       <footer>
         <p>
-          데이터: Crossref · OpenAlex · Semantic Scholar (철회 정보: Retraction Watch via Crossref)
-        </p>
-        <p>
-          입력하신 참고문헌은 서버로 전송·저장되지 않습니다 — 브라우저에서 학술 DB에 직접
-          조회합니다.
+          입력하신 참고문헌은 서버로 전송되거나 저장되지 않습니다. 브라우저가 공개 학술
+          DB(Crossref, DataCite, Europe PMC, OpenAlex, Semantic Scholar)에 직접 조회하며, 철회
+          정보는 Retraction Watch 데이터를 사용합니다.
         </p>
       </footer>
     </div>
