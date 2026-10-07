@@ -371,16 +371,24 @@ function s2Enqueue<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
+/**
+ * 브라우저에서는 자체 프록시(Cloudflare Worker) 경유.
+ * S2는 429 응답에 CORS 헤더를 빼먹어 브라우저에서 재시도가 불가능한데,
+ * 프록시가 모든 응답에 CORS를 붙여주고 성공 응답을 10분 캐시해 한도도 아껴줌.
+ */
+const S2_BASE =
+  typeof window === "undefined"
+    ? "https://api.semanticscholar.org"
+    : "https://citeguard-proxy.citeguard.workers.dev/s2";
+
 export async function s2TitleMatch(query: string): Promise<SourceRecord | null> {
   const q = encodeURIComponent(query.slice(0, 300));
   let json: { data?: S2Paper[] } | null = null;
   try {
-    // 브라우저에서는 이 엔드포인트가 CORS를 막으므로 즉시 실패 → null (보조 소스로만 동작)
-    const tries = typeof window === "undefined" ? 4 : 1;
     json = (await s2Enqueue(() =>
       fetchJson(
-        `https://api.semanticscholar.org/graph/v1/paper/search/match?query=${q}&fields=title,year,venue,authors,externalIds`,
-        tries
+        `${S2_BASE}/graph/v1/paper/search/match?query=${q}&fields=title,year,venue,authors,externalIds`,
+        4
       )
     )) as { data?: S2Paper[] } | null;
   } catch {
