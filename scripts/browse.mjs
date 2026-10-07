@@ -2,6 +2,7 @@
 import { chromium } from "playwright-core";
 
 const SHOT_DIR = process.argv[2] ?? ".";
+const BASE_URL = process.argv[3] ?? "http://localhost:5173";
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const page = await (await browser.newContext({ viewport: { width: 1100, height: 900 } })).newPage();
 
@@ -9,7 +10,7 @@ const errors = [];
 page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 page.on("pageerror", (e) => errors.push(String(e)));
 
-await page.goto("http://localhost:5173", { waitUntil: "networkidle" });
+await page.goto(BASE_URL, { waitUntil: "networkidle" });
 await page.waitForSelector("text=CiteGuard", { timeout: 15000 }).catch(() => {});
 await page.screenshot({ path: `${SHOT_DIR}/01-initial.png`, fullPage: true });
 
@@ -37,7 +38,7 @@ console.log("CONSOLE_ERRORS:", errors.length ? errors.join("\n") : "(none)");
 const darkPage = await (
   await browser.newContext({ viewport: { width: 1100, height: 900 }, colorScheme: "dark" })
 ).newPage();
-await darkPage.goto("http://localhost:5173", { waitUntil: "networkidle" });
+await darkPage.goto(BASE_URL, { waitUntil: "networkidle" });
 await darkPage.click('button:has-text("예시 넣기")');
 await darkPage.screenshot({ path: `${SHOT_DIR}/04-dark.png` });
 

@@ -41,7 +41,10 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 
 ## 배포
 
-정적 호스팅이면 어디든: `npm run build` 후 `dist/`를 GitHub Pages / Cloudflare Pages / Vercel에 업로드.
+- **운영 URL**: https://citeguard-bzv.pages.dev (Cloudflare Pages, 프로젝트명 citeguard)
+- **프록시 Worker**: https://citeguard-proxy.citeguard.workers.dev (`proxy/` — S2/arXiv/DBLP 중계 + CORS + 10분 캐시)
+- 앱 재배포: `npm run deploy` (빌드 후 Pages 업로드)
+- 프록시 재배포: `cd proxy && npx wrangler deploy -c wrangler.toml`
 
 `src/lib/sources.ts`의 `MAILTO` 상수는 Crossref/OpenAlex polite pool 식별용 — 배포 시 운영자 이메일로 유지할 것.
 
