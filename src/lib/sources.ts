@@ -26,6 +26,33 @@ async function fetchJson(url: string, tries = 3): Promise<unknown | null> {
   throw new Error(`요청 실패: ${new URL(url).hostname}`);
 }
 
+/** fetchJson과 같은 재시도 정책의 텍스트(XML 등) fetch */
+async function fetchText(url: string, tries = 3): Promise<string | null> {
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (res.status === 404) return null;
+      if (res.status === 429 || res.status >= 500) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt + Math.random() * 500));
+        continue;
+      }
+      if (!res.ok) return null;
+      return await res.text();
+    } catch {
+      // 네트워크 오류 — 재시도
+      await new Promise((r) => setTimeout(r, 800 * 2 ** attempt));
+    }
+  }
+  throw new Error(`요청 실패: ${new URL(url).hostname}`);
+}
+
+/**
+ * arXiv·DBLP·S2는 CORS가 없거나 불완전해 브라우저에서는 자체 Cloudflare Worker를 경유.
+ * Node(스모크 테스트 등)에서는 업스트림 직접 호출.
+ */
+const PROXY_BASE = "https://citeguard-proxy.citeguard.workers.dev";
+const inBrowser = typeof window !== "undefined";
+
 /** "Ashish Vaswani" → {given: "Ashish", family: "Vaswani"} */
 function splitDisplayName(name: string): RecordAuthor | null {
   const parts = name.trim().split(/\s+/);
@@ -350,6 +377,58 @@ export async function openalexRetractedFlag(doi: string): Promise<boolean | null
   }
 }
 
+/*
+ * DBLP는 소스 후보였으나 보류 (2026-10 확인): dblp.org가 Anubis 봇 차단(JS 작업증명)을
+ * 전 경로에 적용해 search/publ/api가 프록시·교차출처 fetch 어느 쪽에서도 응답하지 않음.
+ * 우회는 하지 않기로 함. 차단이 풀리면 프록시의 /dblp 라우트를 재활용할 것.
+ */
+
+/* ---------------- arXiv (무키 — 프리프린트 원본, Atom XML; 브라우저에선 프록시 경유) ---------------- */
+
+const ARXIV_BASE = inBrowser ? `${PROXY_BASE}/arxiv` : "https://export.arxiv.org";
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
+    .replace(/&amp;/g, "&");
+}
+
+export async function arxivTitleSearch(title: string): Promise<SourceRecord[]> {
+  const phrase = title.slice(0, 200).replace(/["{}]/g, " ").replace(/\s+/g, " ").trim();
+  const q = encodeURIComponent(`ti:"${phrase}"`);
+  const xml = await fetchText(`${ARXIV_BASE}/api/query?search_query=${q}&max_results=5`);
+  if (!xml) return [];
+  const out: SourceRecord[] = [];
+  for (const entry of xml.split("<entry>").slice(1)) {
+    const pick = (tag: string): string | undefined => {
+      const m = entry.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+      return m ? decodeXmlEntities(m[1].replace(/\s+/g, " ").trim()) : undefined;
+    };
+    const t = pick("title");
+    if (!t) continue;
+    const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)]
+      .map((m) => splitDisplayName(decodeXmlEntities(m[1].trim())))
+      .filter((a): a is RecordAuthor => a !== null);
+    const published = pick("published");
+    const absUrl = pick("id"); // 예: http://arxiv.org/abs/1706.03762v7
+    const doi = pick("arxiv:doi"); // 지면 출판된 경우만 존재
+    out.push({
+      source: "arxiv",
+      doi: doi?.toLowerCase(),
+      title: t,
+      authors,
+      year: published ? parseInt(published.slice(0, 4), 10) || undefined : undefined,
+      journal: "arXiv",
+      url: absUrl?.replace(/^http:/, "https:"),
+      isPreprint: true,
+    });
+  }
+  return out;
+}
+
 /* ---------------- Semantic Scholar (키 없는 공유 풀 — 보조 소스) ---------------- */
 
 interface S2Paper {
@@ -376,10 +455,7 @@ function s2Enqueue<T>(task: () => Promise<T>): Promise<T> {
  * S2는 429 응답에 CORS 헤더를 빼먹어 브라우저에서 재시도가 불가능한데,
  * 프록시가 모든 응답에 CORS를 붙여주고 성공 응답을 10분 캐시해 한도도 아껴줌.
  */
-const S2_BASE =
-  typeof window === "undefined"
-    ? "https://api.semanticscholar.org"
-    : "https://citeguard-proxy.citeguard.workers.dev/s2";
+const S2_BASE = inBrowser ? `${PROXY_BASE}/s2` : "https://api.semanticscholar.org";
 
 export async function s2TitleMatch(query: string): Promise<SourceRecord | null> {
   const q = encodeURIComponent(query.slice(0, 300));

@@ -1,6 +1,6 @@
 # CiteGuard — 논문 인용 검증 도구
 
-AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고문헌 목록을 붙여넣으면 Crossref · DataCite(arXiv) · Europe PMC · OpenAlex · Semantic Scholar에 실시간 대조해 실존 여부·메타데이터 정확성·철회(retraction) 여부를 검증합니다.
+AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고문헌 목록을 붙여넣으면 Crossref · DataCite · Europe PMC · arXiv · OpenAlex · Semantic Scholar에 실시간 대조해 실존 여부·메타데이터 정확성·철회(retraction) 여부를 검증합니다.
 
 > 배경: LLM이 생성한 인용의 11~57%가 조작이라는 감사 결과가 있고(arXiv 2603.03299), 조작 인용은 이미 출판 문헌에 침투 중입니다. 기획·조사 문서는 `../citation-verifier-planning/` 참고.
 
@@ -20,7 +20,7 @@ AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고�
   → [DOI 있음] Crossref 해석 → DataCite(arXiv 등 저장소 DOI) → OpenAlex
       → 제목 일치 확인 (DOI 도용 탐지)
   → [DOI 없음/실패] Crossref 서지 검색 (query.bibliographic)
-      → 확신 미달 시 DataCite → Europe PMC → OpenAlex 제목 검색 → Semantic Scholar
+      → 확신 미달 시 DataCite → Europe PMC → arXiv → OpenAlex 제목 검색 → Semantic Scholar
       → 그래도 없으면 OpenAlex 저자+연도(±2) 검색으로 유사 논문 제시
       → 후보 스코어링: 제목 유사도 + 연도·저자 일치 보너스/페널티
   → 철회 확인 (Crossref filter=updates: + OpenAlex is_retracted)
@@ -42,7 +42,7 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 ## 배포
 
 - **운영 URL**: https://citeguard-bzv.pages.dev (Cloudflare Pages, 프로젝트명 citeguard)
-- **프록시 Worker**: https://citeguard-proxy.citeguard.workers.dev (`proxy/` — S2/arXiv/DBLP 중계 + CORS + 10분 캐시)
+- **프록시 Worker**: https://citeguard-proxy.citeguard.workers.dev (`proxy/` — S2/arXiv/DBLP 중계 + CORS + 10분 캐시. DBLP는 2026-10 현재 Anubis 봇 차단으로 업스트림이 응답하지 않아 소스에서 제외)
 - 앱 재배포: `npm run deploy` (빌드 후 Pages 업로드)
 - 프록시 재배포: `cd proxy && npx wrangler deploy -c wrangler.toml`
 

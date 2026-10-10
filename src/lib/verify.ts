@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { authorSurnames, formatAuthorList } from "./types";
 import {
+  arxivTitleSearch,
   crossrefByDoi,
   crossrefRetractionCheck,
   crossrefSearchBibliographic,
@@ -167,6 +168,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         else if (ym === false) score -= 0.2;
         if (am === true) score += 0.05;
         else if (am === false) score -= 0.1;
+        // 같은 논문의 프리프린트와 출판본이 모두 잡히면 출판본 우선 (동점 깨기용 미세 페널티)
+        if (cand.isPreprint) score -= 0.03;
         return score;
       };
       const pickBest = (cands: SourceRecord[]): SourceRecord | undefined =>
@@ -180,8 +183,8 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       let best = pickBest(pool);
 
       // Crossref 최선 후보가 확신 수준이 아니면 다른 소스 교차 확인.
-      // 무제한 무료 소스(DataCite: arXiv 커버, Europe PMC: 의생명)를 먼저 쓰고,
-      // 일일 한도가 있는 OpenAlex 검색은 그래도 못 찾았을 때만 사용.
+      // 무제한 무료 소스(DataCite: arXiv DOI, Europe PMC: 의생명, arXiv: 프리프린트 원본)를
+      // 먼저 쓰고, 일일 한도가 있는 OpenAlex 검색은 그래도 못 찾았을 때만 사용.
       const needMore = () => !best || candScore(best) < 0.9;
       if (needMore() && ref.title) {
         sourcesChecked.push("DataCite (제목 검색)");
@@ -194,6 +197,13 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
         best = pickBest([...(best ? [best] : []), ...epPool]);
       }
       if (needMore() && ref.title) {
+        sourcesChecked.push("arXiv");
+        const axPool = await safe("arXiv", arxivTitleSearch(ref.title), []);
+        best = pickBest([...(best ? [best] : []), ...axPool]);
+      }
+      // 최선 후보가 프리프린트뿐이면 확신 수준이어도 OpenAlex까지는 진행 —
+      // 피어리뷰 게재본이 있으면 그쪽을 보여주는 것이 교정 BibTeX 품질에 낫다.
+      if ((needMore() || best?.isPreprint) && ref.title) {
         sourcesChecked.push("OpenAlex (제목 검색)");
         const oaPool = await safe("OpenAlex (제목 검색)", openalexTitleSearch(ref.title), []);
         best = pickBest([...(best ? [best] : []), ...oaPool]);
