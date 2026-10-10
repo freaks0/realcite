@@ -1,4 +1,6 @@
-# CiteGuard — 프로젝트 안내 (Claude용)
+# RealCite — 프로젝트 안내 (Claude용)
+
+(구명: CiteGuard. 2026-10-10 RealCite로 리브랜딩 — Cloudflare 리소스명(citeguard-bzv.pages.dev, citeguard-proxy Worker, workers.dev 서브도메인 "citeguard")은 아직 구명 유지 중)
 
 연구자·대학원생을 위한 논문 인용 검증 웹앱. AI가 지어낸 가짜 인용(할루시네이션)을 공개 학술 DB 대조로 잡아낸다.
 

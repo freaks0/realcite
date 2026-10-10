@@ -1,5 +1,6 @@
 /**
- * CiteGuard 프록시 — CORS가 없거나 불완전한 학술 API를 브라우저에서 쓸 수 있게 중계.
+ * RealCite 프록시 — CORS가 없거나 불완전한 학술 API를 브라우저에서 쓸 수 있게 중계.
+ * (Worker 이름·URL은 CiteGuard 시절의 citeguard-proxy를 유지 — 배포 호환)
  * 대상은 아래 allowlist의 GET 요청만. 입력 데이터는 저장하지 않음.
  *
  *   /s2/...    → api.semanticscholar.org  (429 응답에 CORS 헤더가 없어 브라우저에서 깨지는 문제 해결)

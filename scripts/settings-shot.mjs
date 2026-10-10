@@ -9,6 +9,6 @@ await page.click("summary:has-text('고급 설정')");
 await page.fill("#oa-key", "test-key-123");
 await page.waitForTimeout(200);
 await page.screenshot({ path: `${SHOT_DIR}/05-settings.png` });
-const saved = await page.evaluate(() => localStorage.getItem("citeguard.openalexApiKey"));
+const saved = await page.evaluate(() => localStorage.getItem("realcite.openalexApiKey"));
 console.log("localStorage 저장:", saved);
 await browser.close();

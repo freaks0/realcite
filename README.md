@@ -1,4 +1,4 @@
-# CiteGuard — 논문 인용 검증 도구
+# RealCite — 논문 인용 검증 도구
 
 AI가 찾아준 논문 인용이 **진짜인지** 확인하는 웹 앱. 참고문헌 목록을 붙여넣으면 Crossref · DataCite · Europe PMC · arXiv · OpenAlex · Semantic Scholar에 실시간 대조해 실존 여부·메타데이터 정확성·철회(retraction) 여부를 검증합니다.
 
