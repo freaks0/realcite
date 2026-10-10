@@ -296,7 +296,7 @@ export default function App() {
         </div>
         <p className="tagline">
           AI가 찾아준 논문, 진짜인지 확인하세요. 참고문헌을 붙여넣으면 Crossref, OpenAlex,
-          DataCite(arXiv), Europe PMC 등 공개 학술 DB에 실시간 대조해 실존 여부와 철회
+          arXiv, Europe PMC 등 공개 학술 DB에 실시간 대조해 실존 여부와 철회
           여부를 검증합니다.
         </p>
       </header>
@@ -429,7 +429,7 @@ export default function App() {
       <footer>
         <p>
           입력하신 참고문헌은 서버로 전송되거나 저장되지 않습니다. 브라우저가 공개 학술
-          DB(Crossref, DataCite, Europe PMC, OpenAlex, Semantic Scholar)에 직접 조회하며, 철회
+          DB(Crossref, DataCite, Europe PMC, arXiv, OpenAlex, Semantic Scholar)에 직접 조회하며, 철회
           정보는 Retraction Watch 데이터를 사용합니다.
         </p>
       </footer>

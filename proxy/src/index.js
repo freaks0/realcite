@@ -4,7 +4,8 @@
  *
  *   /s2/...    → api.semanticscholar.org  (429 응답에 CORS 헤더가 없어 브라우저에서 깨지는 문제 해결)
  *   /arxiv/... → export.arxiv.org         (CORS 미지원)
- *   /dblp/...  → dblp.org                 (CORS 미지원, CS 학회·저널 커버)
+ *   /dblp/...  → dblp.org                 (CORS 미지원. 2026-10 현재 Anubis 봇 차단으로
+ *                                          API 응답 불가 — 차단 해제 시 재활용, 우회 금지)
  */
 
 const UPSTREAMS = {
