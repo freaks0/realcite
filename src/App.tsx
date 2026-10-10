@@ -219,12 +219,15 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
   );
 }
 
-const OA_KEY_STORAGE = "citeguard.openalexApiKey";
+const OA_KEY_STORAGE = "realcite.openalexApiKey";
+/** CiteGuard 시절 저장된 키 호환용 (읽기 전용 폴백) */
+const OA_KEY_STORAGE_LEGACY = "citeguard.openalexApiKey";
 
 export default function App() {
   const [input, setInput] = useState("");
   const [oaKey, setOaKey] = useState(() => {
-    const saved = localStorage.getItem(OA_KEY_STORAGE) ?? "";
+    const saved =
+      localStorage.getItem(OA_KEY_STORAGE) ?? localStorage.getItem(OA_KEY_STORAGE_LEGACY) ?? "";
     setOpenalexApiKey(saved);
     return saved;
   });
@@ -292,7 +295,7 @@ export default function App() {
       <header>
         <div className="eyebrow">Citation Verification</div>
         <div className="wordmark">
-          Cite<span>Guard</span>
+          Real<span>Cite</span>
         </div>
         <p className="tagline">
           AI가 찾아준 논문, 진짜인지 확인하세요. 참고문헌을 붙여넣으면 Crossref, OpenAlex,

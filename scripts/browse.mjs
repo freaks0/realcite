@@ -11,7 +11,7 @@ page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 page.on("pageerror", (e) => errors.push(String(e)));
 
 await page.goto(BASE_URL, { waitUntil: "networkidle" });
-await page.waitForSelector("text=CiteGuard", { timeout: 15000 }).catch(() => {});
+await page.waitForSelector("text=RealCite", { timeout: 15000 }).catch(() => {});
 await page.screenshot({ path: `${SHOT_DIR}/01-initial.png`, fullPage: true });
 
 // 예시 넣기 → 검증하기
