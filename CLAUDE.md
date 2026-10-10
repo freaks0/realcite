@@ -49,4 +49,5 @@ cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 1. ~~arXiv를 검증 소스로 추가~~ (2026-10-10 완료. DBLP는 Anubis 봇 차단으로 API 접근 불가라 보류 — 우회 금지, 차단 해제 시 재시도. TMLR 등 OpenReview 전용 논문은 여전히 S2 의존 — OpenReview API 검토 후보)
 2. Phase 2: KCI 한국어 논문 (KCI OAI-PMH는 무키 — 단, 데이터 라이선스 법무 확인 선행. "KCI 무료 CC" 주장은 조사에서 기각됨)
 3. Phase 3: 분야별 동향 브리핑 (LLM 필요 시 BYOK로 운영비 0원 유지)
-4. GitHub 저장소 푸시 (아직 로컬 git만 있음)
+4. ~~GitHub 저장소 푸시~~ (2026-10-10 완료: https://github.com/freaks0/realcite 비공개)
+5. Cloudflare 리소스명 리브랜딩 (Pages 프로젝트 citeguard, Worker citeguard-proxy, 서브도메인 — URL이 바뀌는 프로덕션 작업이라 소유자 결정 필요)
