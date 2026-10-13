@@ -50,7 +50,7 @@ async function fetchText(url: string, tries = 3): Promise<string | null> {
  * arXiv·DBLP·S2는 CORS가 없거나 불완전해 브라우저에서는 자체 Cloudflare Worker를 경유.
  * Node(스모크 테스트 등)에서는 업스트림 직접 호출.
  */
-const PROXY_BASE = "https://citeguard-proxy.citeguard.workers.dev";
+const PROXY_BASE = "https://realcite-proxy.citeguard.workers.dev";
 const inBrowser = typeof window !== "undefined";
 
 /** "Ashish Vaswani" → {given: "Ashish", family: "Vaswani"} */
