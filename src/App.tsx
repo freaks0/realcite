@@ -237,7 +237,9 @@ export default function App() {
     localStorage.setItem(OA_KEY_STORAGE, key.trim());
     setOpenalexApiKey(key);
   };
-  const [results, setResults] = useState<VerificationResult[] | null>(null);
+  // 검증 중에는 완료된 항목부터 채워지는 부분 배열 (미완료 슬롯은 null)
+  const [results, setResults] = useState<(VerificationResult | null)[] | null>(null);
+  const [pendingRaws, setPendingRaws] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useState<CitationStyle>("bibtex");
@@ -245,7 +247,7 @@ export default function App() {
   const runningRef = useRef(false);
 
   const format = useMemo(() => (input.trim() ? detectFormat(input) : null), [input]);
-  const running = progress !== null && results === null;
+  const running = progress !== null;
 
   const run = async () => {
     if (runningRef.current) return;
@@ -256,10 +258,20 @@ export default function App() {
     }
     runningRef.current = true;
     setError(null);
-    setResults(null);
+    setResults(new Array(refs.length).fill(null));
+    setPendingRaws(refs.map((r) => r.raw));
     setProgress({ done: 0, total: refs.length });
     try {
-      const out = await verifyAll(refs, (done, total) => setProgress({ done, total }));
+      const out = await verifyAll(
+        refs,
+        (done, total) => setProgress({ done, total }),
+        (i, res) =>
+          setResults((prev) => {
+            const next = prev ? [...prev] : new Array(refs.length).fill(null);
+            next[i] = res;
+            return next;
+          })
+      );
       setResults(out);
     } finally {
       runningRef.current = false;
@@ -270,6 +282,7 @@ export default function App() {
   const copyAll = () => {
     // 확실한 매칭(exact/minor)만 — uncertain은 사용자가 확인 후 개별 복사
     const all = (results ?? [])
+      .filter((r): r is VerificationResult => r !== null)
       .filter((r) => r.matched && (r.verdict === "exact" || r.verdict === "minor"))
       .map((r) => formatCitation(r.matched!, style))
       .join(style === "bibtex" ? "\n\n" : "\n");
@@ -280,13 +293,14 @@ export default function App() {
 
   const counts = useMemo(() => {
     if (!results) return null;
+    const done = results.filter((r): r is VerificationResult => r !== null);
     return {
-      exact: results.filter((r) => r.verdict === "exact").length,
-      minor: results.filter((r) => r.verdict === "minor").length,
-      uncertain: results.filter((r) => r.verdict === "uncertain").length,
-      major: results.filter((r) => r.verdict === "major").length,
-      error: results.filter((r) => r.verdict === "error").length,
-      retracted: results.filter((r) => r.retraction.status === "retracted").length,
+      exact: done.filter((r) => r.verdict === "exact").length,
+      minor: done.filter((r) => r.verdict === "minor").length,
+      uncertain: done.filter((r) => r.verdict === "uncertain").length,
+      major: done.filter((r) => r.verdict === "major").length,
+      error: done.filter((r) => r.verdict === "error").length,
+      retracted: done.filter((r) => r.retraction.status === "retracted").length,
     };
   }, [results]);
 
@@ -407,16 +421,25 @@ export default function App() {
                   ))}
                 </select>
               </label>
-              {results.some((r) => r.matched && (r.verdict === "exact" || r.verdict === "minor")) && (
+              {results.some((r) => r?.matched && (r.verdict === "exact" || r.verdict === "minor")) && (
                 <button className="btn-small" onClick={copyAll}>
                   {copiedAll ? "복사됨 ✓" : "검증된 참고문헌 전체 복사"}
                 </button>
               )}
             </div>
             <div className="results">
-              {results.map((r, i) => (
-                <ResultCard key={i} result={r} style={style} />
-              ))}
+              {results.map((r, i) =>
+                r ? (
+                  <ResultCard key={i} result={r} style={style} />
+                ) : (
+                  <div key={i} className="card card-pending">
+                    <div className="card-head">
+                      <span className="badge badge-pending">확인 중</span>
+                      <span className="card-raw">{pendingRaws[i]}</span>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
             <p className="disclaimer">
               자동 판정은 참고용입니다.

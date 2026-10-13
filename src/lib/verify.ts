@@ -187,19 +187,14 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
       // 먼저 쓰고, 일일 한도가 있는 OpenAlex 검색은 그래도 못 찾았을 때만 사용.
       const needMore = () => !best || candScore(best) < 0.9;
       if (needMore() && ref.title) {
-        sourcesChecked.push("DataCite (제목 검색)");
-        const dcPool = await safe("DataCite (제목 검색)", dataciteTitleSearch(ref.title), []);
-        best = pickBest([...(best ? [best] : []), ...dcPool]);
-      }
-      if (needMore() && ref.title) {
-        sourcesChecked.push("Europe PMC");
-        const epPool = await safe("Europe PMC", europePmcTitleSearch(ref.title), []);
-        best = pickBest([...(best ? [best] : []), ...epPool]);
-      }
-      if (needMore() && ref.title) {
-        sourcesChecked.push("arXiv");
-        const axPool = await safe("arXiv", arxivTitleSearch(ref.title), []);
-        best = pickBest([...(best ? [best] : []), ...axPool]);
+        // 셋 다 무제한 무료 소스라 순차 대기할 이유가 없음 — 동시 조회로 지연 단축
+        sourcesChecked.push("DataCite (제목 검색)", "Europe PMC", "arXiv");
+        const [dcPool, epPool, axPool] = await Promise.all([
+          safe("DataCite (제목 검색)", dataciteTitleSearch(ref.title), []),
+          safe("Europe PMC", europePmcTitleSearch(ref.title), []),
+          safe("arXiv", arxivTitleSearch(ref.title), []),
+        ]);
+        best = pickBest([...(best ? [best] : []), ...dcPool, ...epPool, ...axPool]);
       }
       // 최선 후보가 프리프린트뿐이면 확신 수준이어도 OpenAlex까지는 진행 —
       // 피어리뷰 게재본이 있으면 그쪽을 보여주는 것이 교정 BibTeX 품질에 낫다.
@@ -369,7 +364,9 @@ export async function verifyReference(ref: ParsedReference): Promise<Verificatio
 /** 전체 목록 검증 (동시 3건 제한 — 학술 API 예의) */
 export async function verifyAll(
   refs: ParsedReference[],
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  /** 한 건 끝날 때마다 호출 — UI가 완료분을 먼저 표시할 수 있게 */
+  onResult?: (index: number, result: VerificationResult) => void
 ): Promise<VerificationResult[]> {
   const results: VerificationResult[] = new Array(refs.length);
   let next = 0;
@@ -381,6 +378,7 @@ export async function verifyAll(
       const i = next++;
       results[i] = await verifyReference(refs[i]);
       done++;
+      onResult?.(i, results[i]);
       onProgress?.(done, refs.length);
     }
   }
