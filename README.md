@@ -41,8 +41,8 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 
 ## 배포
 
-- **운영 URL**: https://citeguard-bzv.pages.dev (Cloudflare Pages, 프로젝트명 citeguard)
-- **프록시 Worker**: https://citeguard-proxy.citeguard.workers.dev (`proxy/` — S2/arXiv/DBLP 중계 + CORS + 10분 캐시. DBLP는 2026-10 현재 Anubis 봇 차단으로 업스트림이 응답하지 않아 소스에서 제외)
+- **운영 URL**: https://realcite.pages.dev (Cloudflare Pages, 프로젝트명 realcite)
+- **프록시 Worker**: https://realcite-proxy.citeguard.workers.dev (`proxy/` — S2/arXiv/DBLP 중계 + CORS + 10분 캐시. DBLP는 2026-10 현재 Anubis 봇 차단으로 업스트림이 응답하지 않아 소스에서 제외)
 - 앱 재배포: `npm run deploy` (빌드 후 Pages 업로드)
 - 프록시 재배포: `cd proxy && npx wrangler deploy -c wrangler.toml`
 

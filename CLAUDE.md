@@ -1,13 +1,14 @@
 # RealCite — 프로젝트 안내 (Claude용)
 
-(구명: CiteGuard. 2026-10-10 RealCite로 리브랜딩 — Cloudflare 리소스명(citeguard-bzv.pages.dev, citeguard-proxy Worker, workers.dev 서브도메인 "citeguard")은 아직 구명 유지 중)
+(구명: CiteGuard. 2026-10-10 RealCite로 리브랜딩, 2026-10-13 Cloudflare 리소스 이사 완료. workers.dev 계정 서브도메인 "citeguard"만 유지 — 방문자에게 안 보이는 내부 주소라 실익 없음, 소유자 결정)
 
 연구자·대학원생을 위한 논문 인용 검증 웹앱. AI가 지어낸 가짜 인용(할루시네이션)을 공개 학술 DB 대조로 잡아낸다.
 
 ## 현재 상태 (2026-10-08 기준)
 
-- **배포 운영 중**: https://citeguard-bzv.pages.dev (Cloudflare Pages)
-- **프록시 Worker**: https://citeguard-proxy.citeguard.workers.dev (`proxy/` 폴더. S2·arXiv·DBLP 중계 + CORS 부여 + 10분 엣지 캐시)
+- **배포 운영 중**: https://realcite.pages.dev (Cloudflare Pages, 프로젝트명 realcite)
+- **프록시 Worker**: https://realcite-proxy.citeguard.workers.dev (`proxy/` 폴더. S2·arXiv·DBLP 중계 + CORS 부여 + 10분 엣지 캐시)
+- 구 리소스(citeguard-bzv.pages.dev, citeguard-proxy Worker)는 삭제 예정/완료 — 남아 있으면 정리할 것
 - Cloudflare 계정 freaks17489@gmail.com, wrangler OAuth 로그인 완료, workers.dev 서브도메인 "citeguard"
 - 기획·조사 문서: `../citation-verifier-planning/` (01-조사보고서, 02-기획안)
 
@@ -50,4 +51,4 @@ cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 2. Phase 2: KCI 한국어 논문 (KCI OAI-PMH는 무키 — 단, 데이터 라이선스 법무 확인 선행. "KCI 무료 CC" 주장은 조사에서 기각됨)
 3. Phase 3: 분야별 동향 브리핑 (LLM 필요 시 BYOK로 운영비 0원 유지)
 4. ~~GitHub 저장소 푸시~~ (2026-10-10 완료: https://github.com/freaks0/realcite 비공개)
-5. Cloudflare 리소스명 리브랜딩 (Pages 프로젝트 citeguard, Worker citeguard-proxy, 서브도메인 — URL이 바뀌는 프로덕션 작업이라 소유자 결정 필요)
+5. ~~Cloudflare 리소스명 리브랜딩~~ (2026-10-13 완료: realcite.pages.dev + realcite-proxy Worker. 계정 서브도메인은 citeguard 유지 결정)

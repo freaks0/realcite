@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name citeguard --branch main --commit-dirty=true"
+    "deploy": "npm run build && wrangler pages deploy dist --project-name realcite --branch main --commit-dirty=true"
   },
   "dependencies": {
     "react": "^19.2.8",
