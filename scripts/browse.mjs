@@ -19,8 +19,13 @@ await page.click('button:has-text("예시 넣기")');
 await page.screenshot({ path: `${SHOT_DIR}/02-example.png`, fullPage: true });
 await page.click('button:has-text("검증하기")');
 
-// 결과 대기 (실제 API 호출 — 넉넉히)
+// 결과 대기 (스트리밍 표시라 summary는 즉시 뜸 — '확인 중' 카드가 모두 사라질 때까지)
 await page.waitForSelector(".summary", { timeout: 180000 });
+await page.waitForFunction(
+  () => document.querySelectorAll(".badge-pending").length === 0,
+  null,
+  { timeout: 180000 }
+);
 await page.waitForTimeout(500);
 // 카드 하나를 펼친 상태 포함해 캡처
 await page.click(".card:first-child .card-head");
