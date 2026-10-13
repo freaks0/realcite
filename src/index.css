@@ -357,6 +357,13 @@ textarea::placeholder {
 .badge-major { color: var(--major); background: color-mix(in srgb, var(--major) 11%, transparent); }
 .badge-error { color: var(--ink-dim); background: var(--panel-2); }
 .badge-retracted { color: var(--retracted); background: color-mix(in srgb, var(--retracted) 11%, transparent); }
+.badge-pending { color: var(--ink-dim); background: var(--panel-2); animation: pending-pulse 1.6s ease-in-out infinite; }
+
+.card-pending .card-raw { opacity: 0.55; }
+
+@keyframes pending-pulse {
+  50% { opacity: 0.45; }
+}
 
 .card-raw {
   flex: 1;
