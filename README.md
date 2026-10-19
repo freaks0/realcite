@@ -4,9 +4,17 @@ AI가 찾아준 논문 인용이 실제로 존재하는지 확인하는 웹 앱�
 
 운영 주소: https://realcite.pages.dev
 
-![예시 목록 6건의 검증 결과. 실존 확인 5건, 조작 의심 1건, 철회됨 1건](docs/results.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/main-dark.png">
+  <img alt="RealCite 메인 화면. 예시 참고문헌 목록이 입력된 상태" src="docs/main-light.png">
+</picture>
 
-예시 목록 6건을 검증한 화면입니다. 세 번째 항목(Smith & Johnson, 2021)은 조작 의심 판정을 보여주려고 일부러 넣은 가짜 인용이고, Wakefield (1998)는 실존하지만 철회된 논문입니다. 카드를 펼치면 판정 사유, 검색 중 가장 비슷했던 논문, 조회한 소스의 순서가 보입니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/results-dark.png">
+  <img alt="예시 목록 6건의 검증 결과. 실존 확인 5건, 조작 의심 1건, 철회됨 1건" src="docs/results-light.png">
+</picture>
+
+위는 예시 목록을 넣은 메인 화면이고, 아래는 그 6건을 검증한 결과입니다. 세 번째 항목(Smith & Johnson, 2021)은 조작 의심 판정을 보여주려고 일부러 넣은 가짜 인용이고, Wakefield (1998)는 실존하지만 철회된 논문입니다. 카드를 펼치면 판정 사유, 검색 중 가장 비슷했던 논문, 조회한 소스의 순서가 보입니다.
 
 ## 왜 만들었나
 
@@ -67,7 +75,7 @@ node scripts/browse.mjs .   # 헤드리스 브라우저 E2E (Edge 필요)
 - 프록시 Worker: https://realcite-proxy.citeguard.workers.dev (`proxy/` 폴더. Semantic Scholar와 arXiv 중계, CORS 부여, 10분 캐시. DBLP는 2026년 10월 현재 봇 차단으로 업스트림이 응답하지 않아 소스에서 제외)
 - 앱 재배포: `npm run deploy` (빌드 후 Pages 업로드)
 - 프록시 재배포: `cd proxy && npx wrangler deploy -c wrangler.toml`
-- README 스크린샷 갱신: `node scripts/readme-shot.mjs docs/results.png`
+- README 스크린샷 갱신: `node scripts/readme-shot.mjs docs` (밝은 테마와 어두운 테마로 메인·결과 화면 4장 생성)
 
 `src/lib/sources.ts`의 `MAILTO` 상수는 Crossref와 OpenAlex의 polite pool 식별용입니다. 배포 시 운영자 이메일로 유지합니다.
 
