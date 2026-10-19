@@ -32,6 +32,7 @@ cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 - 코어 로직은 `src/lib/`에 UI 무관 순수 모듈로 분리 (추후 MCP 서버/CLI가 재사용 예정)
 - 소스 캐스케이드 (무제한 무료 소스 우선): Crossref → DataCite(arXiv 커버) → Europe PMC → OpenAlex → Semantic Scholar(브라우저에선 프록시 경유)
 - OpenAlex: DOI 단건은 무료, 검색은 IP당 일일 한도. 429 시 세션 내 즉시 스킵. 고급 설정에서 BYOK 키 지원(localStorage)
+- `src/lib/sources.ts`의 `MAILTO` 상수는 Crossref·OpenAlex polite pool 식별용. 배포 시 운영자 이메일로 유지
 - 판정 5단계: exact / minor(필드 오염) / uncertain(유사 논문 — 제목 불일치 시 minor 금지!) / major(조작 의심) / error(판정 보류)
 - **핵심 원칙**: 소스 장애 상태에서 "못 찾음"을 조작 의심으로 단정하지 않는다(보류 처리). 엉뚱한 논문을 같은 논문이라고 내놓는 것이 최악의 오류다.
 
