@@ -135,11 +135,14 @@ function splitPlaintext(input: string): string[] {
   }
 
   // 빈 줄로 구분된 블록이 있으면 블록 단위
-  const blocks = text.split(/\n\s*\n/).map((b) => b.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const blocks = text
+    .split(/\n\s*\n/)
+    .map((b) => b.replace(numbered, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
   if (blocks.length >= 2) return blocks;
 
-  // 아니면 한 줄 = 한 항목
-  return lines.map((l) => l.trim()).filter((l) => l.length > 10);
+  // 아니면 한 줄 = 한 항목 (항목이 하나뿐이어도 [n] 번호는 뗀다)
+  return lines.map((l) => l.replace(numbered, "").trim()).filter((l) => l.length > 10);
 }
 
 /** "A." "M. W." 같은 이니셜 토큰인지 */

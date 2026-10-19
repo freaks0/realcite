@@ -61,7 +61,8 @@ function mlaAuthors(authors: RecordAuthor[]): string {
   const firstStr = first.given ? `${first.family}, ${first.given}` : first.family;
   if (authors.length === 1) return firstStr;
   if (authors.length === 2) return `${firstStr}, and ${fullName(authors[1])}`;
-  return `${firstStr}, et al.`;
+  // 마침표는 호출부가 붙인다 (et al.. 방지)
+  return `${firstStr}, et al`;
 }
 
 function vancouverAuthors(authors: RecordAuthor[]): string {
@@ -70,7 +71,7 @@ function vancouverAuthors(authors: RecordAuthor[]): string {
     return ini ? `${a.family} ${ini}` : a.family;
   });
   if (names.length === 0) return "";
-  if (names.length > 6) return `${names.slice(0, 6).join(", ")}, et al.`;
+  if (names.length > 6) return `${names.slice(0, 6).join(", ")}, et al`;
   return names.join(", ");
 }
 
@@ -114,13 +115,16 @@ export function formatCitation(rec: SourceRecord, style: CitationStyle): string 
       return parts.filter(Boolean).join(" ").trim();
     }
     case "chicago": {
-      const names = rec.authors.map(fullName);
+      // 첫 저자만 "성, 이름", 나머지는 "이름 성", 마지막 저자 앞에 and
+      const first = rec.authors[0];
+      const firstStr = first ? (first.given ? `${first.family}, ${first.given}` : first.family) : "";
+      const rest = rec.authors.slice(1).map(fullName);
       const chicagoNames =
-        names.length === 0
-          ? ""
-          : names.length === 1
-            ? `${rec.authors[0].family}, ${rec.authors[0].given ?? ""}`.replace(/, $/, "")
-            : `${rec.authors[0].family}, ${rec.authors[0].given ?? ""}, and ${names.slice(1).join(", ")}`.replace(/, ,/, ",");
+        rest.length === 0
+          ? firstStr
+          : rest.length === 1
+            ? `${firstStr}, and ${rest[0]}`
+            : `${firstStr}, ${rest.slice(0, -1).join(", ")}, and ${rest[rest.length - 1]}`;
       const parts = [
         `${chicagoNames}.`,
         `${year}.`,
