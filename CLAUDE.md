@@ -21,7 +21,7 @@ npm run build        # 정적 빌드 → dist/
 npm run deploy       # 빌드 + Cloudflare Pages 배포
 npx tsx scripts/smoke.ts                      # 코어 로직 스모크 테스트 (실제 API 호출, 8케이스)
 node scripts/browse.mjs <스크린샷폴더> [URL]   # 헤드리스 Edge E2E (playwright-core + msedge 채널)
-node scripts/readme-shot.mjs docs/results.png  # README 스크린샷 갱신 (운영 사이트 기준)
+node scripts/readme-shot.mjs docs              # README 스크린샷 4장 갱신 (운영 사이트, 라이트·다크)
 cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 ```
 
