@@ -16,10 +16,12 @@
 
 ```bash
 npm run dev          # 로컬 개발 서버 (localhost:5173)
+npm test             # 단위 테스트 (vitest, API 모킹, 네트워크 없음). Node 22 이상 필요
 npm run build        # 정적 빌드 → dist/
 npm run deploy       # 빌드 + Cloudflare Pages 배포
 npx tsx scripts/smoke.ts                      # 코어 로직 스모크 테스트 (실제 API 호출, 8케이스)
 node scripts/browse.mjs <스크린샷폴더> [URL]   # 헤드리스 Edge E2E (playwright-core + msedge 채널)
+node scripts/readme-shot.mjs docs/results.png  # README 스크린샷 갱신 (운영 사이트 기준)
 cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 ```
 
@@ -42,6 +44,7 @@ cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 재배포
 
 ## 테스트 규칙
 
+- 파싱·판정·서식 로직을 바꾸면 `npm test`(단위 테스트, `src/lib/__tests__/`)를 통과시킨다. 판정 규칙이 바뀌면 테스트도 같이 고친다
 - 판정 로직을 바꾸면 `scripts/smoke.ts`를 반드시 실행 (사용자가 실전에서 발견한 오판정 케이스들이 박제돼 있음 — 새 오판정 제보가 오면 케이스로 추가)
 - OpenAlex 한도 소진 시(개발 중 흔함, UTC 자정 리셋) 일부 케이스는 "보류" 경로로 통과하는 게 정상
 
