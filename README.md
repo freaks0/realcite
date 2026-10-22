@@ -4,6 +4,13 @@ AI가 찾아준 논문 인용이 실제로 존재하는지 확인하는 웹 앱�
 
 운영 주소: https://realcite.pages.dev
 
+| | |
+|---|---|
+| 역할 | 개인 프로젝트, 기획부터 운영까지 1인 |
+| 상태 | 운영 중 (서버 없음, 운영비 0원) |
+| 검증 | 학술 DB 6곳 대조, 판정 5단계, 참고문헌 서식 6종 출력 |
+| 스택 | TypeScript · React · Vite · Cloudflare Pages · Cloudflare Workers(프록시) · vitest |
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/main-dark.png">
   <img alt="RealCite 메인 화면. 예시 참고문헌 목록이 입력된 상태" src="docs/main-light.png">
