@@ -19,7 +19,7 @@ cd proxy && npx wrangler deploy -c wrangler.toml   # 프록시 Worker 재배포
 
 - 서버 없음, 운영비 0원. 브라우저가 무료 학술 API를 직접 호출하고 정적 호스팅만 쓴다. 참고문헌은 어떤 서버에도 저장하지 않는다. 프라이버시가 신뢰 포인트다.
 - 코어 로직은 `src/lib/`에 UI와 무관한 순수 모듈로 둔다. 추후 MCP 서버와 CLI가 재사용한다.
-- 소스 캐스케이드는 무제한 무료 소스 우선: Crossref, DataCite(arXiv 커버), Europe PMC, OpenAlex, Semantic Scholar 순. Semantic Scholar는 브라우저에서 `proxy/` 경유.
+- 소스 캐스케이드는 무제한 무료 소스 우선: Crossref 먼저, 확신 미달 시 DataCite(arXiv DOI 커버), Europe PMC, arXiv를 동시 조회, 그래도 미달이면 OpenAlex, Semantic Scholar 순. Semantic Scholar와 arXiv는 브라우저에서 `proxy/` 경유.
 - OpenAlex는 DOI 단건 무료, 검색은 IP당 일일 한도. 429가 오면 세션 내 즉시 스킵. 고급 설정의 BYOK 키는 localStorage에 둔다.
 - `src/lib/sources.ts`의 `MAILTO` 상수는 Crossref와 OpenAlex polite pool 식별용이다. 배포 시 운영자 이메일로 유지한다.
 

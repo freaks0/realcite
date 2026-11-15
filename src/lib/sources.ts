@@ -47,7 +47,7 @@ async function fetchText(url: string, tries = 3): Promise<string | null> {
 }
 
 /**
- * arXiv·DBLP·S2는 CORS가 없거나 불완전해 브라우저에서는 자체 Cloudflare Worker를 경유.
+ * arXiv와 Semantic Scholar는 CORS가 없거나 불완전해 브라우저에서는 자체 Cloudflare Worker를 경유.
  * Node(스모크 테스트 등)에서는 업스트림 직접 호출.
  */
 const PROXY_BASE = "https://realcite-proxy.citeguard.workers.dev";
@@ -376,12 +376,6 @@ export async function openalexRetractedFlag(doi: string): Promise<boolean | null
     return null;
   }
 }
-
-/*
- * DBLP는 소스 후보였으나 보류 (2026-10 확인): dblp.org가 Anubis 봇 차단(JS 작업증명)을
- * 전 경로에 적용해 search/publ/api가 프록시·교차출처 fetch 어느 쪽에서도 응답하지 않음.
- * 우회는 하지 않기로 함. 차단이 풀리면 프록시의 /dblp 라우트를 재활용할 것.
- */
 
 /* ---------------- arXiv (무키 — 프리프린트 원본, Atom XML; 브라우저에선 프록시 경유) ---------------- */
 

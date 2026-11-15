@@ -1,18 +1,14 @@
 /**
  * RealCite 프록시 — CORS가 없거나 불완전한 학술 API를 브라우저에서 쓸 수 있게 중계.
- * (workers.dev 계정 서브도메인은 "citeguard" 유지 — 방문자에게 안 보이는 내부 주소라 실익 없음)
  * 대상은 아래 allowlist의 GET 요청만. 입력 데이터는 저장하지 않음.
  *
  *   /s2/...    → api.semanticscholar.org  (429 응답에 CORS 헤더가 없어 브라우저에서 깨지는 문제 해결)
  *   /arxiv/... → export.arxiv.org         (CORS 미지원)
- *   /dblp/...  → dblp.org                 (CORS 미지원. 2026-10 현재 Anubis 봇 차단으로
- *                                          API 응답 불가 — 차단 해제 시 재활용, 우회 금지)
  */
 
 const UPSTREAMS = {
   s2: "https://api.semanticscholar.org",
   arxiv: "https://export.arxiv.org",
-  dblp: "https://dblp.org",
 };
 
 const CORS_HEADERS = {
@@ -35,7 +31,7 @@ export default {
     const [, prefix, ...rest] = url.pathname.split("/");
     const upstream = UPSTREAMS[prefix];
     if (!upstream || rest.length === 0) {
-      return new Response("Unknown route. Use /s2/, /arxiv/, /dblp/", {
+      return new Response("Unknown route. Use /s2/ or /arxiv/", {
         status: 404,
         headers: CORS_HEADERS,
       });

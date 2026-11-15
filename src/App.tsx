@@ -220,14 +220,11 @@ function ResultCard({ result, style }: { result: VerificationResult; style: Cita
 }
 
 const OA_KEY_STORAGE = "realcite.openalexApiKey";
-/** CiteGuard 시절 저장된 키 호환용 (읽기 전용 폴백) */
-const OA_KEY_STORAGE_LEGACY = "citeguard.openalexApiKey";
 
 export default function App() {
   const [input, setInput] = useState("");
   const [oaKey, setOaKey] = useState(() => {
-    const saved =
-      localStorage.getItem(OA_KEY_STORAGE) ?? localStorage.getItem(OA_KEY_STORAGE_LEGACY) ?? "";
+    const saved = localStorage.getItem(OA_KEY_STORAGE) ?? "";
     setOpenalexApiKey(saved);
     return saved;
   });
